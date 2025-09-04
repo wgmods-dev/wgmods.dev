@@ -1,0 +1,74 @@
+.screen-line-before {
+  position: relative;
+}
+
+.screen-line-before::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100vw;
+  z-index: -1;
+  height: 1px;
+  width: 200vw;
+  background-color: rgb(0 0 0 / 0.1);
+}
+
+.dark .screen-line-before::before {
+  background-color: rgb(255 255 255 / 0.1);
+}
+
+.screen-line-after {
+  position: relative;
+}
+
+.screen-line-after::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: -100vw;
+  z-index: -1;
+  height: 1px;
+  width: 200vw;
+  background-color: rgb(0 0 0 / 0.1);
+}
+
+.dark .screen-line-after::after {
+  background-color: rgb(255 255 255 / 0.1);
+}
+
+/* Pattern utilities */
+.dot-pattern {
+  background-image: radial-gradient(rgb(0 0 0 / 0.05) 1px, transparent 0);
+  background-size: 10px 10px;
+  background-position: center;
+}
+
+.dark .dot-pattern {
+  background-image: radial-gradient(rgb(255 255 255 / 0.05) 1px, transparent 0);
+}
+
+.diagonal-pattern {
+  background-image: repeating-linear-gradient(315deg, rgb(0 0 0 / 0.05) 0, rgb(0 0 0 / 0.05) 1px, transparent 0, transparent 50%);
+  background-size: 10px 10px;
+}
+
+.dark .diagonal-pattern {
+  background-image: repeating-linear-gradient(315deg, rgb(255 255 255 / 0.05) 0, rgb(255 255 255 / 0.05) 1px, transparent 0, transparent 50%);
+}
+
+/* Custom primary button color */
+:root {
+  --color-fd-primary: #f25322;
+  --color-fd-primary-foreground: #ffffff;
+}
+
+.dark {
+  --color-fd-primary: #f25322;
+  --color-fd-primary-foreground: #ffffff;
+}
+
+/* Font configuration */
+:root {
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, Menlo, Monaco, Consolas, monospace;
+}
