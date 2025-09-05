@@ -1,0 +1,9 @@
+{
+  "title": "World of Warships",
+  "description": "Naval warfare modding",
+  "icon": "WoWsLogo",
+  "root": true,
+  "pages": [
+    "index"
+  ]
+}

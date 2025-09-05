@@ -1,0 +1,9 @@
+{
+  "title": "World of Warplanes",
+  "description": "Aerial warfare modding",
+  "icon": "WoWpLogo",
+  "root": true,
+  "pages": [
+    "index"
+  ]
+}

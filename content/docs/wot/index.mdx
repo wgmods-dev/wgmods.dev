@@ -1,0 +1,174 @@
+---
+title: Introduction
+description: Getting Started with World of Tanks Modding
+---
+
+World of Tanks modding <span className='text-fd-muted-foreground text-sm'>(WoT modding)</span> allows you to **customize and enhance** your tank warfare experience through Python scripts, Flash components, and configuration modifications.
+
+World of Tanks has different modding areas:
+
+<Cards>
+
+<Card icon={<Terminal className="text-green-300" />} title='Python Scripts'>
+
+Handle game logic, mechanics, and backend functionality. Most mods interact with the Python layer for gameplay features.
+
+</Card>
+
+<Card icon={<PanelsTopLeft className="text-blue-300" />} title='Flash UI Components'>
+
+ActionScript 3 components that control the visual interface, HUD elements, and user interactions in battle and garage.
+
+</Card>
+
+<Card icon={<FileText />} title='Configuration Files'>
+
+XML files that define game settings, vehicle parameters, and interface layouts.
+
+</Card>
+
+<Card icon={<Paintbrush />} title='Assets & Resources'>
+
+Interface textures and icons that can be modified for visual customization.
+
+</Card>
+
+</Cards>
+
+<Callout title="Decompiled Source Available">
+  This documentation references the decompiled World of Tanks client source code from [wot-src](https://github.com/izeberg/wot-src) to help you understand the game's internal workings.
+</Callout>
+
+### Prerequisites
+
+**Development Knowledge:** Basic to intermediate Python 2.7, some ActionScript 3 for UI mods.
+
+**[Wargaming Fair Play Policy](https://worldoftanks.eu/en/content/guide/fair_play/):** All mods must comply with official guidelines.
+
+Some experience with game modding would be helpful for advanced customizations.
+
+## Quick Setup
+
+Get started with World of Tanks modding in minutes.
+
+<Tabs items={['Python Environment', 'Development Tools', 'Game Files']}>
+  <Tab value="Python Environment">
+    Set up Python development environment:
+
+    ```bash
+    # Install Python 2.7 (WoT client still uses Python 2.7)
+    python --version
+
+    # Install code editor (VS Code recommended)
+    # Install Python extension for VS Code
+    ```
+
+    **Note:** World of Tanks still uses Python 2.7 even in version 2.0+.
+  </Tab>
+  
+  <Tab value="Development Tools">
+    Essential tools for WoT modding:
+
+    ```bash
+    # Decompiler for .pyc files
+    # WoT Mod Tools (community tools)
+    # Flash development tools (for AS3 mods)
+    ```
+
+    Most tools are available through the WoT modding community.
+  </Tab>
+
+  <Tab value="Game Files">
+    Key directories in WoT decompiled source:
+
+    ```bash
+    # Python scripts: sources/res/scripts/
+    # ActionScript 3: sources-as3/
+    # GUI resources: sources/res/gui/
+    # Reference: https://github.com/izeberg/wot-src
+    ```
+
+    Always backup original files before modifying.
+  </Tab>
+</Tabs>
+
+<Callout title='New to Modding?'>
+
+    Start with simple configuration changes before diving into Python scripting.
+
+</Callout>
+
+## FAQ
+
+Common questions about World of Tanks modding.
+
+<Accordions>
+  <Accordion id='legal-mods' title="Are mods legal in World of Tanks?">
+    Yes, mods are officially supported by Wargaming. However, they must comply with the Fair Play Policy. Some mods are prohibited in ranked battles or competitive modes.
+
+    Check the [official mod policy](https://worldoftanks.eu/en/content/guide/fair_play/) for current guidelines.
+  </Accordion>
+
+  <Accordion id='mod-safety' title="How do I know if a mod is safe?">
+    Only download mods from trusted sources. Recommended platforms include:
+
+    - [WGMods.net](https://wgmods.net/) (Official World of Tanks Mod Hub)
+    - Reputable modding community sites
+    - Open source repositories where you can review code
+
+    Always scan mod files for malware and check community reviews before installation.
+  </Accordion>
+
+  <Accordion id='update-compatibility' title="Do mods break with game updates?">
+    Yes, most mods require updates when the game client is updated. The modding community typically releases updated versions shortly after game patches.
+
+    Always check mod compatibility with your current game version.
+  </Accordion>
+
+</Accordions>
+
+## Learn More
+
+Ready to dive deeper into World of Tanks modding?
+
+### Essential Guides
+
+<Cards>
+  <Card href="/docs/wot/setup" title="Environment Setup">
+    Complete setup guide for WoT modding development environment.
+  </Card>
+  <Card href="/docs/wot/client-structure" title="Client Architecture">
+    Understanding the structure of the decompiled WoT client code.
+  </Card>
+  <Card href="/docs/wot/python-api" title="Python APIs">
+    Documentation of key Python interfaces and game APIs.
+  </Card>
+  <Card href="/docs/wot/flash-ui" title="Flash UI System">
+    Learn how the ActionScript 3 UI system works in WoT.
+  </Card>
+</Cards>
+
+### Advanced Topics
+
+<Cards>
+  <Card
+    href="/docs/wot/battle-mechanics"
+    title="Battle System"
+    description="Deep dive into battle mechanics and combat systems"
+  />
+  <Card
+    href="/docs/wot/vehicle-system"
+    title="Vehicle System"
+    description="Understanding tanks, components, and customization"
+  />
+  <Card
+    href="/docs/wot/mod-distribution"
+    title="Mod Distribution"
+    description="Best practices for packaging and sharing mods"
+  />
+  <Card
+    href="/docs/wot/debugging"
+    title="Debugging & Testing"
+    description="Tools and techniques for mod development"
+  />
+</Cards>

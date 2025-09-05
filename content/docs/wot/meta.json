@@ -1,0 +1,9 @@
+{
+  "title": "World of Tanks",
+  "description": "Tank warfare modding",
+  "icon": "WoTLogo",
+  "root": true,
+  "pages": [
+    "index"
+  ]
+}
