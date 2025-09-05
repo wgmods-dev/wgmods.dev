@@ -19,15 +19,17 @@ export function useVideoControl({
 
   // Charger l'état sauvegardé quand le composant est monté
   useEffect(() => {
-    if (!isMounted()) return;
+    const mounted = isMounted();
+    if (!mounted) return;
     
     setIsPlaying(savedPlayingState);
     setIsLoading(false);
-  }, [isMounted(), savedPlayingState]);
+  }, [isMounted, savedPlayingState]);
 
   // Gérer la vidéo et les event listeners
   useEffect(() => {
-    if (!isMounted() || isLoading) return;
+    const mounted = isMounted();
+    if (!mounted || isLoading) return;
     
     const video = videoRef.current;
     if (!video) return;
@@ -69,7 +71,7 @@ export function useVideoControl({
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('loadeddata', handleLoadedData);
     };
-  }, [isMounted(), isLoading, isPlaying, setSavedPlayingState]);
+  }, [isMounted, isLoading, isPlaying, setSavedPlayingState]);
 
   const play = useCallback(() => {
     if (videoRef.current) {
@@ -93,10 +95,12 @@ export function useVideoControl({
     }
   }, [play, pause]);
 
+  const mounted = isMounted();
+  
   return {
     videoRef,
-    isPlaying: isMounted() ? isPlaying : false,
-    isLoading: !isMounted() || isLoading,
+    isPlaying: mounted ? isPlaying : false,
+    isLoading: !mounted || isLoading,
     play,
     pause,
     toggle,

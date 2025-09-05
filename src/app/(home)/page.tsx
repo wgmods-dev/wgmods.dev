@@ -3,12 +3,15 @@ import { Cards, Card } from 'fumadocs-ui/components/card';
 import { buttonVariants } from 'fumadocs-ui/components/ui/button';
 import { Panel, PanelHeader, PanelTitle, PanelContent } from '@/components/panel';
 import { HeroVideo } from '@/components/hero-video';
+import { Card as CustomCard, CardTitle, CardDescription } from '@/components/ui/card';
+import { FeatureBlock } from '@/components/ui/feature-block';
+import { styles } from '@/lib/styles';
 import { RiDiscordFill } from 'react-icons/ri';
 
 export default function HomePage() {
   return (
     <div className="mx-auto md:max-w-3xl">
-      <div className="relative aspect-[2/1] border-x border-fd-border select-none sm:aspect-[3/1] flex items-center justify-center screen-line-before screen-line-after overflow-hidden">
+      <div className={`relative aspect-[2/1] ${styles.borderX} select-none sm:aspect-[3/1] flex items-center justify-center ${styles.screenLines} overflow-hidden`}>
         <HeroVideo />
         <div className="absolute inset-0 bg-black/40" />
         <div className="absolute inset-0 dot-pattern opacity-20" />
@@ -46,47 +49,41 @@ export default function HomePage() {
 
         <PanelContent>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <h4 className="font-medium">📚 Complete Documentation</h4>
-              <p className="text-sm text-fd-muted-foreground">
-                Comprehensive guides covering modding for World of Tanks, World of Warships, and more
-              </p>
-            </div>
+            <FeatureBlock
+              icon="📚"
+              title="Complete Documentation"
+              description="Comprehensive guides covering modding for World of Tanks, World of Warships, and more"
+            />
             
-            <div className="space-y-2">
-              <h4 className="font-medium">🔧 API Reference</h4>
-              <p className="text-sm text-fd-muted-foreground">
-                Detailed API documentation with examples and code samples
-              </p>
-            </div>
+            <FeatureBlock
+              icon="🔧"
+              title="API Reference"
+              description="Detailed API documentation with examples and code samples"
+            />
             
-            <div className="space-y-2">
-              <h4 className="font-medium">⚡ Quick Start Guides</h4>
-              <p className="text-sm text-fd-muted-foreground">
-                Get up and running with your first mod in minutes
-              </p>
-            </div>
+            <FeatureBlock
+              icon="⚡"
+              title="Quick Start Guides"
+              description="Get up and running with your first mod in minutes"
+            />
             
-            <div className="space-y-2">
-              <h4 className="font-medium">🎯 Mod Types</h4>
-              <p className="text-sm text-fd-muted-foreground">
-                Learn about UI mods, gameplay modifications, and visual enhancements
-              </p>
-            </div>
+            <FeatureBlock
+              icon="🎯"
+              title="Mod Types"
+              description="Learn about UI mods, gameplay modifications, and visual enhancements"
+            />
             
-            <div className="space-y-2">
-              <h4 className="font-medium">💡 Best Practices</h4>
-              <p className="text-sm text-fd-muted-foreground">
-                Professional patterns and optimization techniques
-              </p>
-            </div>
+            <FeatureBlock
+              icon="💡"
+              title="Best Practices"
+              description="Professional patterns and optimization techniques"
+            />
             
-            <div className="space-y-2">
-              <h4 className="font-medium">👥 Community</h4>
-              <p className="text-sm text-fd-muted-foreground">
-                Join the community of Wargaming games modders
-              </p>
-            </div>
+            <FeatureBlock
+              icon="👥"
+              title="Community"
+              description="Join the community of Wargaming games modders"
+            />
           </div>
         </PanelContent>
       </Panel>
@@ -100,22 +97,22 @@ export default function HomePage() {
 
         <PanelContent>
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="p-3 border border-fd-border rounded-lg">
-              <h4 className="font-medium mb-1">🎨 UI Modifications</h4>
-              <p className="text-sm text-fd-muted-foreground">Custom interfaces, damage panels, minimaps</p>
-            </div>
-            <div className="p-3 border border-fd-border rounded-lg">
-              <h4 className="font-medium mb-1">🔊 Audio Mods</h4>
-              <p className="text-sm text-fd-muted-foreground">Sound packs, voice overs, engine sounds</p>
-            </div>
-            <div className="p-3 border border-fd-border rounded-lg">
-              <h4 className="font-medium mb-1">📊 Statistics & Analytics</h4>
-              <p className="text-sm text-fd-muted-foreground">XVM, battle analytics, performance trackers</p>
-            </div>
-            <div className="p-3 border border-fd-border rounded-lg">
-              <h4 className="font-medium mb-1">🎯 Crosshairs & Aiming</h4>
-              <p className="text-sm text-fd-muted-foreground">Custom crosshairs, aiming assistance</p>
-            </div>
+            <CustomCard>
+              <CardTitle>🎨 UI Modifications</CardTitle>
+              <CardDescription>Custom interfaces, damage panels, minimaps</CardDescription>
+            </CustomCard>
+            <CustomCard>
+              <CardTitle>🔊 Audio Mods</CardTitle>
+              <CardDescription>Sound packs, voice overs, engine sounds</CardDescription>
+            </CustomCard>
+            <CustomCard>
+              <CardTitle>📊 Statistics & Analytics</CardTitle>
+              <CardDescription>XVM, battle analytics, performance trackers</CardDescription>
+            </CustomCard>
+            <CustomCard>
+              <CardTitle>🎯 Crosshairs & Aiming</CardTitle>
+              <CardDescription>Custom crosshairs, aiming assistance</CardDescription>
+            </CustomCard>
           </div>
         </PanelContent>
       </Panel>
@@ -128,11 +125,11 @@ export default function HomePage() {
         </PanelHeader>
 
         <PanelContent>
-          <div className="relative overflow-hidden rounded-lg border border-fd-border bg-gradient-to-br from-fd-primary/5 via-fd-primary/10 to-fd-primary/5 p-8">
+          <div className={`relative overflow-hidden rounded-lg ${styles.cardBorder} bg-gradient-to-br from-fd-primary/5 via-fd-primary/10 to-fd-primary/5 p-8`}>
             <div className="absolute inset-0 bg-gradient-to-br from-transparent via-fd-primary/5 to-transparent" />
             <div className="relative text-center space-y-4">
               <h3 className="text-xl font-semibold mb-2">Connect with Modders</h3>
-              <p className="text-fd-muted-foreground mb-6 max-w-md mx-auto">
+              <p className={`${styles.mutedText} mb-6 max-w-md mx-auto`}>
                 Join our Discord community to chat with other modders, get help, share your creations, and stay updated on the latest developments.
               </p>
               <Link
@@ -208,7 +205,7 @@ export default function HomePage() {
 function Separator({ className }: { className?: string }) {
   return (
     <div
-      className={`relative flex h-8 w-full border-x border-fd-border diagonal-pattern ${className || ''}`}
+      className={`relative flex h-8 w-full ${styles.borderX} diagonal-pattern ${className || ''}`}
     />
   );
 }
