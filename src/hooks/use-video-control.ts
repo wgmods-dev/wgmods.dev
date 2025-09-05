@@ -55,6 +55,14 @@ export function useVideoControl({
     video.addEventListener('play', handlePlay);
     video.addEventListener('pause', handlePause);
     video.addEventListener('loadeddata', handleLoadedData);
+    
+    // Si la vidéo est déjà chargée, déclencher la lecture immédiatement
+    if (video.readyState >= 2 && isPlaying && video.paused) {
+      video.play().catch(() => {
+        setIsPlaying(false);
+        setSavedPlayingState(false);
+      });
+    }
 
     return () => {
       video.removeEventListener('play', handlePlay);
