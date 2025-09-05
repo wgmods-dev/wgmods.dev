@@ -16,8 +16,6 @@ export function useVideoControl({
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [savedPlayingState, setSavedPlayingState] = useLocalStorage(storageKey, defaultPlaying);
-
-  // Charger l'état sauvegardé quand le composant est monté
   useEffect(() => {
     const mounted = isMounted();
     if (!mounted) return;
@@ -25,8 +23,6 @@ export function useVideoControl({
     setIsPlaying(savedPlayingState);
     setIsLoading(false);
   }, [isMounted, savedPlayingState]);
-
-  // Gérer la vidéo et les event listeners
   useEffect(() => {
     const mounted = isMounted();
     if (!mounted || isLoading) return;
@@ -36,40 +32,62 @@ export function useVideoControl({
 
     const handlePlay = () => {
       setIsPlaying(true);
-      setSavedPlayingState(true);
+      if (!document.hidden) {
+        setSavedPlayingState(true);
+      }
     };
     
     const handlePause = () => {
       setIsPlaying(false);
-      setSavedPlayingState(false);
+      if (!document.hidden) {
+        setSavedPlayingState(false);
+      }
     };
 
-    const handleLoadedData = () => {
-      // Appliquer l'état sauvegardé quand la vidéo est prête
+    const tryAutoplay = async () => {
       if (isPlaying && video.paused) {
-        video.play().catch(() => {
+        try {
+          await video.play();
+        } catch (error) {
+          console.warn('Autoplay prevented by browser:', error);
           setIsPlaying(false);
-          setSavedPlayingState(false);
-        });
+          if (!document.hidden) {
+            setSavedPlayingState(false);
+          }
+        }
+      }
+    };
+
+    const handleCanPlayThrough = () => {
+      setTimeout(() => {
+        tryAutoplay();
+      }, 100);
+    };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        const actuallyPlaying = !video.paused;
+        setIsPlaying(actuallyPlaying);
+        setSavedPlayingState(actuallyPlaying);
       }
     };
     
     video.addEventListener('play', handlePlay);
     video.addEventListener('pause', handlePause);
-    video.addEventListener('loadeddata', handleLoadedData);
+    video.addEventListener('canplaythrough', handleCanPlayThrough);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     
-    // Si la vidéo est déjà chargée, déclencher la lecture immédiatement
-    if (video.readyState >= 2 && isPlaying && video.paused) {
-      video.play().catch(() => {
-        setIsPlaying(false);
-        setSavedPlayingState(false);
-      });
+    if (video.readyState >= 4) {
+      setTimeout(() => {
+        tryAutoplay();
+      }, 100);
     }
 
     return () => {
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
-      video.removeEventListener('loadeddata', handleLoadedData);
+      video.removeEventListener('canplaythrough', handleCanPlayThrough);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [isMounted, isLoading, isPlaying, setSavedPlayingState]);
 
