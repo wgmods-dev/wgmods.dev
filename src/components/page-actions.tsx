@@ -1,11 +1,10 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
   Check,
   ChevronDown,
   Copy,
   ExternalLinkIcon,
-  MessageCircleIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCopyButton } from 'fumadocs-ui/utils/use-copy-button';
@@ -17,38 +16,17 @@ import {
 } from 'fumadocs-ui/components/ui/popover';
 import { cva } from 'class-variance-authority';
 
-const cache = new Map<string, string>();
-
 export function CopyMarkdownButton({
-  markdownUrl,
+  content,
 }: {
-  markdownUrl: string;
+  content: string;
 }) {
-  const [isLoading, setLoading] = useState(false);
   const [checked, onClick] = useCopyButton(async () => {
-    const cached = cache.get(markdownUrl);
-    if (cached) return navigator.clipboard.writeText(cached);
-
-    setLoading(true);
-
-    try {
-      await navigator.clipboard.write([
-        new ClipboardItem({
-          'text/plain': fetch(markdownUrl).then(async (res) => {
-            const content = await res.text();
-            cache.set(markdownUrl, content);
-            return content;
-          }),
-        }),
-      ]);
-    } finally {
-      setLoading(false);
-    }
+    await navigator.clipboard.writeText(content);
   });
 
   return (
     <button
-      disabled={isLoading}
       className={cn(
         buttonVariants({
           color: 'secondary',
