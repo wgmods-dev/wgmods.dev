@@ -1,5 +1,5 @@
 import '@/app/global.css';
-import { RootProvider } from 'fumadocs-ui/provider';
+import { Provider } from '@/app/provider';
 import { GeistMono } from 'geist/font/mono';
 import { Figtree } from 'next/font/google';
 
@@ -13,7 +13,7 @@ export default function Layout({ children }: LayoutProps<'/'>) {
   return (
     <html lang="en" className={`${figtree.variable} ${GeistMono.variable}`} suppressHydrationWarning>
       <body className="flex flex-col min-h-screen overflow-x-hidden">
-        <RootProvider>{children}</RootProvider>
+        <Provider>{children}</Provider>
       </body>
     </html>
   );
