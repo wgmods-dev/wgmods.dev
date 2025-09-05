@@ -19,6 +19,7 @@ export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
   if (!page) notFound();
 
   const MDXContent = page.data.body;
+  const { lastModified } = page.data;
   
   // Read the raw markdown content for copying
   let rawContent = '';
@@ -33,6 +34,7 @@ export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
     <DocsPage 
       toc={page.data.toc} 
       full={page.data.full}
+      lastUpdate={lastModified ? new Date(lastModified) : undefined}
       tableOfContent={{
         style: 'clerk',
       }}
