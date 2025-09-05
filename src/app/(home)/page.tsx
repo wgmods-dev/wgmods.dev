@@ -11,15 +11,15 @@ import { RiDiscordFill } from 'react-icons/ri';
 export default function HomePage() {
   return (
     <div className="mx-auto md:max-w-3xl">
-      <div className={`relative aspect-[2/1] ${styles.borderX} select-none sm:aspect-[3/1] flex items-center justify-center ${styles.screenLines} overflow-hidden`}>
+      <div className={`relative aspect-[16/10] ${styles.borderX} select-none sm:aspect-[5/2] md:aspect-[3/1] flex items-center justify-center ${styles.screenLines} overflow-hidden`}>
         <HeroVideo />
         <div className="absolute inset-0 bg-black/40" />
         <div className="absolute inset-0 dot-pattern opacity-20" />
-        <div className="relative z-10 text-center space-y-6">
-          <h1 className="text-4xl md:text-6xl font-bold text-white">
+        <div className="relative z-10 text-center space-y-4 px-4 sm:space-y-6 sm:px-6">
+          <h1 className="text-2xl sm:text-4xl md:text-6xl font-bold text-white">
             wgmods.dev
           </h1>
-          <p className="text-lg md:text-xl text-white/90 max-w-2xl">
+          <p className="text-base sm:text-lg md:text-xl text-white/90 max-w-2xl mx-auto">
             The comprehensive documentation hub for Wargaming games modding
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">

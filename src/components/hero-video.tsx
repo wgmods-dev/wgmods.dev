@@ -30,7 +30,7 @@ export function HeroVideo() {
         onClick={toggle}
         className={cn(
           buttonVariants({ size: "icon-xs" }),
-          "absolute bottom-4 right-4 z-20 backdrop-blur-sm border border-white/20 cursor-pointer"
+          "absolute bottom-3 right-3 sm:bottom-4 sm:right-4 z-20 backdrop-blur-sm border border-white/20 cursor-pointer"
         )}
         aria-label="Play/Pause video"
       >
