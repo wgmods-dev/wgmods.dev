@@ -8,7 +8,7 @@ interface UseVideoControlOptions {
 
 export function useVideoControl({
   storageKey = 'video-playing',
-  defaultPlaying = false,
+  defaultPlaying = true,
 }: UseVideoControlOptions = {}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const isMounted = useIsMounted();
