@@ -45,7 +45,7 @@ export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
         <CopyMarkdownButton content={rawContent} />
         <ViewOptions
           markdownUrl={`https://raw.githubusercontent.com/wgmods-dev/wgmods.dev/main/content/docs/${page.path}`}
-          githubUrl={`https://github.com/wgmods-dev/wgmods.dev/blob/main/content/docs/${page.path}`}
+          githubUrl={`https://github.com/wgmods-dev/wgmods.dev/blob/main/content/docs/${page.path}?plain=1`}
         />
       </div>
       <DocsBody>
