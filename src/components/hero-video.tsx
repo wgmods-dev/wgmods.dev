@@ -6,7 +6,7 @@ import { Play, Pause, Loader2 } from 'lucide-react';
 import { useVideoControl } from '@/hooks/use-video-control';
 
 export function HeroVideo() {
-  const { videoRef, isPlaying, isLoading, toggle } = useVideoControl({
+  const { videoRef, isPlaying, isLoading, isVideoVisible, toggle } = useVideoControl({
     storageKey: 'hero-video-playing',
     defaultPlaying: true
   });
@@ -18,7 +18,10 @@ export function HeroVideo() {
         loop 
         muted 
         playsInline 
-        className="absolute inset-0 w-full h-full object-cover"
+        className={cn(
+          "absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-out",
+          isVideoVisible ? "opacity-100" : "opacity-0"
+        )}
         poster="//eu-wotp.wgcdn.co/static/6.10.0_4edfb4/wotp_static/img/core/frontend/scss/common/blocks/video-bg/img/poster.jpg"
       >
         <source src="//eu-wotp.wgcdn.co/static/6.10.0_4edfb4/wotp_static/img/core/frontend/scss/common/blocks/video-bg/img/video-bg.mp4" type="video/mp4" />

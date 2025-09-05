@@ -15,6 +15,7 @@ export function useVideoControl({
   
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isVideoVisible, setIsVideoVisible] = useState(false);
   const [savedPlayingState, setSavedPlayingState] = useLocalStorage(storageKey, defaultPlaying);
   useEffect(() => {
     const mounted = isMounted();
@@ -32,6 +33,7 @@ export function useVideoControl({
 
     const handlePlay = () => {
       setIsPlaying(true);
+      setIsVideoVisible(true);
       if (!document.hidden) {
         setSavedPlayingState(true);
       }
@@ -119,6 +121,7 @@ export function useVideoControl({
     videoRef,
     isPlaying: mounted ? isPlaying : false,
     isLoading: !mounted || isLoading,
+    isVideoVisible: mounted ? isVideoVisible : false,
     play,
     pause,
     toggle,
