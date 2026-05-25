@@ -1,0 +1,156 @@
+---
+title: Reading Game Data
+description: Access vehicle, arena, and account data from Python using BigWorld entities and game helpers.
+---
+
+Game data in WoT comes from two contexts: the hangar and the battle. Each exposes different objects and different APIs. `BigWorld.player()` is your main entry point in both cases, but it returns a different type depending on where you are.
+
+## In the hangar
+
+### BigWorld.player()
+
+In the hangar, `BigWorld.player()` returns an `Account` object. The most useful property is the account name:
+
+```python
+from PlayerEvents import g_playerEvents
+
+def _onAccountBecomePlayer():
+    player = BigWorld.player()
+    print(player.name)  # e.g. '_Winnie[KAISN]'
+
+def init():
+    g_playerEvents.onAccountBecomePlayer += _onAccountBecomePlayer
+
+def fini():
+    g_playerEvents.onAccountBecomePlayer -= _onAccountBecomePlayer
+```
+
+### g_currentVehicle
+
+`g_currentVehicle` tracks the vehicle currently selected in the hangar carousel. It exposes an `onChanged` signal that fires every time the player clicks a different tank.
+
+```python
+from CurrentVehicle import g_currentVehicle
+
+def _onVehicleChanged():
+    vehicle = g_currentVehicle.item
+    if vehicle is None:
+        return
+    print(vehicle.userName)   # display name, e.g. 'AMX 50 B'
+    print(vehicle.level)      # tier 1-10
+    print(vehicle.type)       # class tag: 'heavyTank', 'mediumTank',
+                              #   'lightTank', 'SPG', 'AT-SPG'
+    print(vehicle.nation)     # nation, e.g. 'france'
+
+def init():
+    g_currentVehicle.onChanged += _onVehicleChanged
+
+def fini():
+    g_currentVehicle.onChanged -= _onVehicleChanged
+```
+
+## In battle
+
+### BigWorld.player()
+
+In battle, `BigWorld.player()` returns the `Avatar` object, which holds all in-battle state. It becomes available in `onAvatarBecomePlayer` but vehicle data is not yet loaded at that point. Use `onAvatarReady` to safely access vehicle and arena data.
+
+### Vehicle data
+
+```python
+player = BigWorld.player()
+vd = player.vehicleTypeDescriptor.type
+
+vd.userString        # display name, e.g. 'Bat.-Châtillon 25 t'
+vd.shortUserString   # short name, e.g. 'Bat.-Châtillon 25 t'
+vd.level             # tier, e.g. 10
+player.team          # team number: 1 or 2
+```
+
+### Arena data
+
+```python
+arena = player.arena
+
+arena.arenaType.geometryName   # internal map name, e.g. '11_murovanka'
+arena.arenaType.localizedName  # display name, e.g. 'Murovanka'
+arena.vehicles                 # dict of all vehicles, keyed by vehicleID
+arena.period                   # current phase (see ARENA_PERIOD constants)
+```
+
+Each entry in `arena.vehicles` is a dict with vehicle info:
+
+```python
+for vehicleID, vInfo in arena.vehicles.items():
+    print(vInfo['vehicleType'].type.userString)  # tank name
+    print(vInfo['team'])                         # team number
+    print(vInfo['name'])                         # player name
+```
+
+### When data is available
+
+| Event | Vehicle data | Arena data |
+|---|---|---|
+| `onAvatarBecomePlayer` | Not yet | Not yet |
+| `onAvatarReady` | Yes | Yes |
+
+Always use `onAvatarReady` when you need to read vehicle or arena properties.
+
+## Try it yourself
+
+The mod below shows vehicle info as a notification when you click tanks in the hangar, and logs arena data to `python.log` when a battle starts.
+
+```python title="res_mods/<version>/scripts/client/gui/mods/mod_wgmods_dev_reading_game_data.py"
+import BigWorld
+from PlayerEvents import g_playerEvents
+from CurrentVehicle import g_currentVehicle
+import gui.SystemMessages as SystemMessages
+from gui.SystemMessages import SM_TYPE
+
+TAG = '[wgmod.dev_reading_game_data]'
+
+def _onVehicleChanged():
+    vehicle = g_currentVehicle.item
+    if vehicle is None:
+        return
+    msg = (TAG + ' ' + vehicle.userName
+           + ' | Tier ' + str(vehicle.level)
+           + ' | ' + vehicle.type)
+    SystemMessages.pushMessage(msg, type=SM_TYPE.Information)
+
+def _onAvatarReady():
+    player = BigWorld.player()
+    if player is None:
+        return
+    vd = player.vehicleTypeDescriptor.type
+    print(TAG + ' tank: ' + vd.userString)
+    print(TAG + ' tier: ' + str(vd.level))
+    print(TAG + ' team: ' + str(player.team))
+    arena = player.arena
+    print(TAG + ' map: ' + arena.arenaType.geometryName)
+    print(TAG + ' vehicles: ' + str(len(arena.vehicles)))
+
+def init():
+    g_currentVehicle.onChanged += _onVehicleChanged
+    g_playerEvents.onAvatarReady += _onAvatarReady
+    print(TAG + ' loaded')
+
+def fini():
+    g_currentVehicle.onChanged -= _onVehicleChanged
+    g_playerEvents.onAvatarReady -= _onAvatarReady
+    print(TAG + ' unloaded')
+```
+
+```bash
+"C:\Python27\python.exe" -m py_compile mod_wgmods_dev_reading_game_data.py
+```
+
+In the hangar, a notification appears each time you select a different tank. In battle, check `python.log` after `onAvatarReady` fires:
+
+```txt title="python.log"
+[wgmod.dev_reading_game_data] tank: Bat.-Châtillon 25 t
+[wgmod.dev_reading_game_data] tier: 10
+[wgmod.dev_reading_game_data] team: 1
+[wgmod.dev_reading_game_data] map: 11_murovanka
+[wgmod.dev_reading_game_data] vehicles: 14
+```

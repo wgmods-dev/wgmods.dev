@@ -1,0 +1,325 @@
+---
+title: Python, Flash, and Gameface
+description: Understand which layer to work in depending on what you want to mod.
+---
+
+The WoT client has three layers: Python, Flash, and Gameface. Every mod touches at least one of them. This page explains what each layer is responsible for in practice, how to identify which one controls a given UI element, and how to hook into it.
+
+## Python is always involved
+
+Python is the game logic layer. It reads game state (vehicles, health, arena data) and feeds it to the UI layers. Flash and Gameface cannot access game data directly, they receive it from Python.
+
+This means:
+
+- If you want to **read or modify game data** with no visual output, you only need Python.
+- If you want to **add or modify a UI element**, you need Python to supply the data and either Flash or Gameface to display it.
+
+### Try it yourself
+
+Copy `mod_wgmods_dev_python.py` to `res_mods/<version>/scripts/client/gui/mods/`, compile it, and launch the game. A notification with your account name appears in the hangar immediately, no battle required.
+
+```python title="res_mods/<version>/scripts/client/gui/mods/mod_wgmods_dev_python.py"
+import BigWorld
+from PlayerEvents import g_playerEvents
+import gui.SystemMessages as SystemMessages
+from gui.SystemMessages import SM_TYPE
+
+TAG = '[wgmod.dev_python]'
+
+def _onAccountBecomePlayer():
+    player = BigWorld.player()
+    SystemMessages.pushMessage(TAG + ' account: ' + player.name, type=SM_TYPE.Information)
+
+def init():
+    g_playerEvents.onAccountBecomePlayer += _onAccountBecomePlayer
+    print(TAG + ' loaded')
+
+def fini():
+    g_playerEvents.onAccountBecomePlayer -= _onAccountBecomePlayer
+    print(TAG + ' unloaded')
+```
+
+```bash
+"C:\Python27\python.exe" -m py_compile mod_wgmods_dev_python.py
+```
+
+## Flash / Scaleform
+
+Flash is the original UI system, still responsible for most of the battle HUD. It is built with ActionScript 3, compiled into `.swf` files, and loaded by the engine at battle start. Python communicates with Flash through the DAAPI bridge (see [Client Architecture](/docs/wot/getting-started/client-architecture)).
+
+### What Flash controls
+
+The battle HUD is split across several `.swf` files. You can see them load and unload in `python.log`:
+
+```txt title="python.log"
+[Scaleform] Destroy GUI Component: 'gui/flash/battle.swf'
+[Scaleform] Destroy GUI Component: 'gui/flash/battleCrosshairsApp.swf'
+[Scaleform] Destroy GUI Component: 'gui/flash/battleVehicleMarkersApp.swf'
+[Scaleform] Destroy GUI Component: 'gui/flash/battleDamageIndicatorApp.swf'
+[Scaleform] Destroy GUI Component: 'gui/flash/battlePredictionIndicatorApp.swf'
+```
+
+| `.swf` file | Contains |
+|---|---|
+| `battle.swf` | Damage panel, minimap, players panel, consumables, ribbons, timers... |
+| `battleCrosshairsApp.swf` | Crosshair and aim circle |
+| `battleVehicleMarkersApp.swf` | Name tags and health bars above tanks |
+| `battleDamageIndicatorApp.swf` | Directional hit indicator |
+| `battlePredictionIndicatorApp.swf` | Shot prediction indicator |
+
+Each component inside a `.swf` has a Python controller class. The mapping is in [`BATTLE_VIEW_ALIASES`](https://github.com/wgmods-dev/wot-src/blob/main/sources/res/scripts/client/gui/Scaleform/genConsts/BATTLE_VIEW_ALIASES.py). For example, `'damagePanel'` maps to the `DamagePanel` class in `gui/Scaleform/daapi/view/battle/shared/damage_panel.py`.
+
+### How to identify a Flash element
+
+Search for the element name in the [decompiled source](https://github.com/wgmods-dev/wot-src) under `scripts/client/gui/Scaleform/`. If a Python file exists there, the element is Flash.
+
+```
+scripts/client/gui/Scaleform/daapi/view/battle/shared/
+    damage_panel.py       → damagePanel      → battle.swf
+    minimap.py            → minimap          → battle.swf
+    crosshair/            → crosshairPanel   → battleCrosshairsApp.swf
+    players_panel.py      → playersPanel     → battle.swf
+    ribbons_panel.py      → ribbonsPanel     → battle.swf
+```
+
+### How to mod Flash
+
+**Option 1: Hook the Python controller.** Every data update that reaches Flash passes through a Python method first. For example, every health change goes through `DamagePanel._updateHealthFromServer`, which then calls `as_updateHealthS` to push the value to Flash via the DAAPI bridge. Monkey-patching that method lets you intercept, log, or modify the value before Flash receives it.
+
+```python
+from gui.Scaleform.daapi.view.battle.shared.damage_panel import DamagePanel
+
+_orig = DamagePanel._updateHealthFromServer
+
+def _patched(self, health):
+    print('[my_mod] health update: ' + str(health))
+    _orig(self, health)  # still sends the value to Flash
+
+def init():
+    DamagePanel._updateHealthFromServer = _patched
+
+def fini():
+    DamagePanel._updateHealthFromServer = _orig
+```
+
+The pattern is the same for any Flash component: find its Python class in `gui/Scaleform/daapi/view/`, identify the method that updates the data you care about, and patch it.
+
+**Option 2: Replace the `.swf`.** The game packs `.swf` files into `.pkg` archives in `res/packages/`. Files placed in `res_mods/<version>/gui/flash/` take priority over the packed originals.
+
+The workflow:
+
+1. **Extract the original `.swf`** from the package. `.pkg` files are ZIP archives, so you can extract them with Python. Save the script below as `extract.py` in your WoT installation folder and run it once. It will create a `my_mod/` subfolder and place the `.swf` inside:
+
+```python title="C:\Games\World_of_Tanks_EU\extract.py"
+import zipfile
+z = zipfile.ZipFile('res/packages/gui-part1.pkg')
+z.extract('gui/flash/battleCrosshairsApp.swf', 'my_mod/')
+# output: my_mod/gui/flash/battleCrosshairsApp.swf
+```
+
+2. **Install Java and [JPEXS Free Flash Decompiler](https://github.com/jindrapetrik/jpexs-decompiler)**:
+
+   **With Scoop:**
+   ```bash
+   scoop bucket add java
+   scoop install temurin-lts-jre
+   ```
+
+   **Without Scoop:** download and install the JRE from [adoptium.net](https://adoptium.net/), then make sure `java` is in your PATH.
+
+   Either way, download `ffdec_X.X.X.jar` from the [JPEXS releases page](https://github.com/jindrapetrik/jpexs-decompiler/releases).
+
+3. **Export the AS3 source**:
+
+```bash
+java -jar ffdec.jar -export script my_mod/scripts/ my_mod/battleCrosshairsApp.swf
+```
+
+4. **Modify the AS3 source.** For example, to draw a test element in `CrosshairBase.as`:
+
+```js title="scripts/net/wg/gui/components/crosshairPanel/CrosshairBase.as"
+// add at the top of the file
+import flash.display.Shape;
+
+// add in the constructor, after super()
+var testShape:Shape = new Shape();
+testShape.graphics.beginFill(0xFF0000, 1);
+testShape.graphics.drawRect(-60, -5, 120, 10);
+testShape.graphics.endFill();
+addChild(testShape);
+```
+
+5. **Recompile:** copy only your modified files into a separate folder and reimport:
+
+```bash
+java -jar ffdec.jar -importscript battleCrosshairsApp.swf battleCrosshairsApp_modded.swf modified_scripts/
+```
+
+6. **Deploy** to `res_mods/<version>/gui/flash/battleCrosshairsApp.swf` and launch the game.
+
+<Callout>
+Only place the files you actually modified in the import folder. JPEXS re-exports can include Scaleform internal files with non-standard syntax that fail to reimport.
+</Callout>
+
+### Try it yourself
+
+**Option 1: Python hook.** Flash lives in the battle HUD, so this mod only activates in battle. Copy `mod_wgmods_dev_flash.py` to `res_mods/<version>/scripts/client/gui/mods/`, compile it, play a battle, and check `python.log` after returning to the hangar.
+
+```python title="res_mods/<version>/scripts/client/gui/mods/mod_wgmods_dev_flash.py"
+from gui.Scaleform.daapi.view.battle.shared.damage_panel import DamagePanel
+
+TAG = '[wgmod.dev_flash]'
+
+_orig = DamagePanel._updateHealthFromServer
+
+def _patched(self, health):
+    print(TAG + ' DamagePanel HP: ' + str(health))
+    _orig(self, health)
+
+def init():
+    DamagePanel._updateHealthFromServer = _patched
+    print(TAG + ' loaded')
+
+def fini():
+    DamagePanel._updateHealthFromServer = _orig
+    print(TAG + ' unloaded')
+```
+
+```bash
+"C:\Python27\python.exe" -m py_compile mod_wgmods_dev_flash.py
+```
+
+Expected output in `python.log` after taking damage in a battle:
+
+```
+[wgmod.dev_flash] loaded
+[wgmod.dev_flash] DamagePanel HP: 2400
+[wgmod.dev_flash] DamagePanel HP: 1950
+...
+```
+
+**Option 2: SWF modification.** Follow the steps above (extract, decompile, modify, recompile, deploy) using `battleCrosshairsApp.swf`. Add these lines to `CrosshairBase.as` to draw a visible red bar at the center of the crosshair:
+
+```js
+// add at the top of the file
+import flash.display.Shape;
+
+// add in the constructor, after super()
+var testShape:Shape = new Shape();
+testShape.graphics.beginFill(0xFF0000, 1);
+testShape.graphics.drawRect(-60, -5, 120, 10);
+testShape.graphics.endFill();
+addChild(testShape);
+```
+
+Deploy the recompiled `.swf` to `res_mods/<version>/gui/flash/battleCrosshairsApp.swf` and launch a battle. You should see a red horizontal bar at the center of your crosshair. Remove the four `testShape` lines and recompile to restore the original crosshair.
+
+## Gameface / Unbound
+
+Gameface is the modern UI system introduced in WoT 2.0, built with HTML, CSS, and JavaScript. Unbound is Wargaming's JavaScript framework that runs on top of Gameface and provides reactive data binding between Python ViewModels and the HTML components. From a modding perspective they are the same layer: you hook the Python side, and the Unbound component on the JavaScript side reacts automatically.
+
+Python communicates with Gameface through ViewModels. Unlike Flash, there are no `.swf` files to replace. Everything goes through Python.
+
+### What Gameface controls
+
+| Element | Notes |
+|---|---|
+| Lobby / hangar | Fully Gameface |
+| Post-battle results | Fully Gameface |
+| Ammunition panel | Migrated from Flash in WoT 2.0 |
+| Death camera UI | Gameface |
+| Dog tags | Gameface |
+| Notifications | Gameface |
+
+<Callout>
+Wargaming is gradually migrating battle HUD elements from Flash to Gameface. Most of the battle HUD is still Flash in the current client, but this is changing with each major update.
+</Callout>
+
+### How to identify a Gameface element
+
+Search for the element name in the decompiled source under `scripts/client/gui/impl/`. If a Python file exists there, the element is Gameface.
+
+```
+scripts/client/gui/impl/battle/
+    battle_page/ammunition_panel/   → ammunition panel
+    death_cam/                      → death camera
+    postmortem_panel/               → post-mortem info
+
+scripts/client/gui/impl/lobby/
+    hangar/                         → main garage
+    crew/                           → crew management
+    ...
+```
+
+### How to mod Gameface
+
+Gameface views have a `_initialize` lifecycle method that fires when the view is created. Monkey-patching it lets you intercept the moment a view loads and access or modify its ViewModel.
+
+```python
+from gui.impl.lobby.hangar.random.random_hangar import RandomHangar
+
+_orig = RandomHangar._initialize
+
+def _patched(self, *args, **kwargs):
+    _orig(self, *args, **kwargs)
+    print('[my_mod] RandomHangar initialized')
+
+def init():
+    RandomHangar._initialize = _patched
+
+def fini():
+    RandomHangar._initialize = _orig
+```
+
+The pattern is the same for any Gameface view: find its class in `gui/impl/`, identify `_initialize` (or another lifecycle method like `_onLoading`), and patch it.
+
+### Try it yourself
+
+Copy `mod_wgmods_dev_gameface.py` to `res_mods/<version>/scripts/client/gui/mods/`, compile it, and launch the game. A notification appears in the hangar immediately, no battle required.
+
+```python title="res_mods/<version>/scripts/client/gui/mods/mod_wgmods_dev_gameface.py"
+from gui.impl.lobby.hangar.random.random_hangar import RandomHangar
+import gui.SystemMessages as SystemMessages
+from gui.SystemMessages import SM_TYPE
+
+TAG = '[wgmod.dev_gameface]'
+
+_orig = RandomHangar._initialize
+
+def _patched(self, *args, **kwargs):
+    _orig(self, *args, **kwargs)
+    SystemMessages.pushMessage(TAG + ' RandomHangar initialized', type=SM_TYPE.Warning)
+
+def init():
+    RandomHangar._initialize = _patched
+    print(TAG + ' loaded')
+
+def fini():
+    RandomHangar._initialize = _orig
+    print(TAG + ' unloaded')
+```
+
+```bash
+"C:\Python27\python.exe" -m py_compile mod_wgmods_dev_gameface.py
+```
+
+## Hybrid elements
+
+Some elements appear in both layers. Wargaming migrated them from Flash to Gameface but kept the Flash alias for compatibility. The Python controller in `gui/impl/` is the active one; the Scaleform alias is a stub.
+
+Examples: `postmortemPanel`, `battleNotifier`, `deathCamHud`, `fullStats`.
+
+If you find a name in `BATTLE_VIEW_ALIASES` but its Python controller lives in `gui/impl/` rather than `gui/Scaleform/`, it is a migrated element, mod the `gui/impl/` class.
+
+## How to decide
+
+| Task | Layer |
+|---|---|
+| React to game events, read data | Python only |
+| Modify the minimap, damage panel, crosshair | Python + Flash |
+| Replace a battle HUD element visually | Flash (replace `.swf`) |
+| Modify the lobby or post-battle screen | Python + Gameface |
+| Add a new overlay for the lobby | Gameface |
+| Element found in `gui/Scaleform/` | Flash |
+| Element found in `gui/impl/` | Gameface |
+| Element in `BATTLE_VIEW_ALIASES` but controller in `gui/impl/` | Gameface (migrated) |

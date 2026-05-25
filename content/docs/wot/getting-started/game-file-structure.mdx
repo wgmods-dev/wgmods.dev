@@ -1,0 +1,112 @@
+---
+title: Game File Structure
+description: An overview of the World of Tanks installation layout and where to place your mod files.
+---
+
+This page covers the World of Tanks installation structure and the conventions you need to follow to get your mod loaded by the game.
+
+## Top-level folders
+
+| Folder | Description |
+|---|---|
+| `res/` | Base game resources. Never modify files here. |
+| `res_mods/` | Unpacked mod overrides, organized by game version. |
+| `mods/` | Packaged `.wotmod` archives, organized by game version. |
+| `replays/` | Recorded battle replays. |
+| `win64/` | Game engine binaries and runtime dependencies. |
+
+## Root configuration files
+
+| File | Description |
+|---|---|
+| `version.xml` | Current game client version. |
+| `paths.xml` | File system path definitions used by the engine. |
+| `game_info.xml` | Game metadata. |
+
+## Two ways to install a mod
+
+In short: use `res_mods/` while you develop, and ship as a `.wotmod` package when you distribute.
+
+`res_mods/` lets you drop plain `.py` files directly into the game folder and test instantly without any compilation step. It is the fastest way to iterate during development.
+
+`.wotmod` packages are ZIP archives. They are the format expected by mod hubs like WGMods.net, and what players install. Everything is in one file, Python code must be compiled to `.pyc`, and the game loads these with slightly lower priority than `res_mods/`.
+
+### `res_mods/` (unpacked mods)
+
+Files placed here directly override their equivalent in `res/`. The engine loads `res_mods/` first, so your file takes priority without touching the originals.
+
+The version folder must match the running client exactly (for example `res_mods/2.2.1.3/`). Each game update requires moving your files to the new version folder.
+
+| Path | Description |
+|---|---|
+| `res_mods/<version>/scripts/client/mods/` | Main entry point for Python mods. The mod loader picks up `.pyc` files here. |
+| `res_mods/<version>/scripts/client/gui/mods/` | GUI-related Python mod files, loaded in alphabetical order. |
+| `res_mods/<version>/gui/flash/` | Compiled ActionScript 3 SWF overrides for the legacy Flash UI. |
+| `res_mods/<version>/gui/unbound/` | HTML/CSS/JS overrides for the modern Gameface UI (WoT 2.0+). |
+| `res_mods/<version>/spaces/` | Per-map space overrides. |
+| `mods/configs/` | Community convention for storing mod configuration files. |
+
+### `mods/` (packaged .wotmod archives)
+
+`.wotmod` files are ZIP archives that follow a specific internal structure. They sit in `mods/<version>/` and are loaded alongside `res_mods/`, but with lower priority.
+
+Inside a `.wotmod`, the path structure mirrors `res/`:
+
+```
+my_mod.wotmod (ZIP)
+└── res/
+    └── scripts/
+        └── client/
+            └── gui/
+                └── mods/
+                    └── mod_example.pyc
+```
+
+<Callout>
+Python files inside `.wotmod` packages must be compiled to `.pyc` bytecode. Plain `.py` files are not executed from packages. In `res_mods/` you can use `.py` directly during development, then compile before distributing.
+</Callout>
+
+## Decompiled source reference (wot-src)
+
+The decompiled source is read-only reference material. It mirrors the internal structure of `res/`.
+
+### `scripts/`
+
+| Folder | Description |
+|---|---|
+| `scripts/client/` | Client-side Python logic (battle UI, garage, lobby). |
+| `scripts/common/` | Shared logic used by both client and server. |
+| `scripts/client_common/` | Code shared at the client/server boundary. |
+| `scripts/entity_defs/` | BigWorld entity definitions. |
+| `scripts/component_defs/` | Component system definitions. |
+| `scripts/arena_defs/` | Arena and battle configuration. |
+| `scripts/item_defs/` | XML definitions for vehicles, modules, and consumables. |
+
+### `gui/`
+
+| Folder | Description |
+|---|---|
+| `gui/flash/` | Compiled Flash SWFs and ActionScript 3 assets (legacy UI). |
+| `gui/unbound/` | Gameface UI components: HTML, CSS, and JS (WoT 2.0+ UI). |
+| `gui/maps/icons/vehicle/` | Vehicle icons organized by nation. |
+
+### Other top-level folders
+
+| Folder | Description |
+|---|---|
+| `vehicles/` | Vehicle model definitions organized by nation. |
+| `maps/` | Battle map data, one folder per map. |
+| `spaces/` | Space and arena definitions. |
+| `content/` | 3D models, particles, buildings, and environment assets. |
+| `text/` | Localization files. |
+
+### `sources-as3/`
+
+ActionScript 3 source for all Flash-based UI components.
+
+| Folder | Description |
+|---|---|
+| `gui_base/` | Base GUI framework shared across all screens. |
+| `gui_battle/` | In-battle HUD components. |
+| `gui_lobby/` | Garage and lobby interface components. |
+| `common/` | Shared AS3 libraries and Wargaming base components. |

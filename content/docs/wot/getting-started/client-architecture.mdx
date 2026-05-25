@@ -1,0 +1,332 @@
+---
+title: Client Architecture
+description: Understand how the Python, Flash, and Gameface layers fit together in the World of Tanks client.
+---
+
+The WoT client is built in layers. Understanding how they interact is essential before writing anything beyond a basic mod.
+
+## The three layers
+
+```
+┌──────────────────────────────────────────────┐
+│             UI Layer                         │
+│  Flash / Scaleform     Gameface / Unbound    │
+│  (legacy HUD, battle)  (lobby, WoT 2.0+)    │
+└─────────────┬──────────────────┬─────────────┘
+              │  DAAPI bridge    │  ViewModels
+              ↕                  ↕
+┌──────────────────────────────────────────────┐
+│             Python Layer                     │
+│  Avatar.py   gui/battle_control   gui/impl   │
+│           g_eventBus   g_playerEvents        │
+└─────────────────────┬────────────────────────┘
+                      │  BigWorld API
+                      ↕
+┌──────────────────────────────────────────────┐
+│          BigWorld Engine (C++)               │
+│     Entities   Physics   Network   Renderer  │
+└──────────────────────────────────────────────┘
+```
+
+| Layer | Technology | Role |
+|---|---|---|
+| **Engine** | BigWorld (C++) | Entities, physics, networking, rendering |
+| **Game logic** | Python 2.7 | Game state, controllers, UI data management |
+| **UI** | Flash/AS3 or Gameface | Visual interface rendered on top of the game |
+
+Python sits between the engine and the UI. It reads game state from BigWorld entities and pushes data to whichever UI system is active.
+
+## BigWorld and the entity system
+
+BigWorld is the C++ engine that exposes a Python API through the `BigWorld` module, always available without import.
+
+Every interactive object in the game is a **BigWorld entity**. Your tank, enemy tanks, and the arena itself are all entities. The player entity is `Avatar.py`, which inherits from `BigWorld.Entity` and holds all in-battle state.
+
+```python
+player = BigWorld.player()
+
+# Vehicle
+player.playerVehicleID          # ID of the player's vehicle entity
+player.vehicleTypeDescriptor    # Full tank definition (name, stats, role...)
+player.team                     # Team number (1 or 2)
+
+# Arena
+arena = player.arena
+arena.vehicles       # dict of all vehicles in battle, keyed by vehicleID
+arena.period         # current phase: WAITING, PREBATTLE, BATTLE, AFTERBATTLE
+arena.arenaType      # map info (name, geometry...)
+
+# Individual vehicle
+vehicle = BigWorld.entities[player.playerVehicleID]
+vehicle.health                          # current HP
+vehicle.typeDescriptor.type.userString  # display name e.g. "T-34"
+```
+
+<Callout>
+`BigWorld.player()` returns `None` outside of battle. Always check for `None` before accessing player properties.
+</Callout>
+
+## The Python layer
+
+All game logic runs in `scripts/client/`. The key namespaces are:
+
+| Namespace | Description |
+|---|---|
+| `Avatar` | Player entity, the root of all in-battle state |
+| `gui.battle_control` | Battle UI controllers (health, ammo, timer...) |
+| `gui.Scaleform.daapi` | Python controllers for Flash UI components |
+| `gui.impl` | Python controllers for Gameface UI views |
+| `gui.shared.event_bus` | Central event dispatcher between Python modules |
+
+### g_playerEvents
+
+The simplest way to react to game state changes. Subscribe to events on the global `g_playerEvents` object.
+
+```python
+import BigWorld
+from PlayerEvents import g_playerEvents
+
+def init():
+    g_playerEvents.onAvatarReady += _onBattleReady
+    g_playerEvents.onAvatarBecomeNonPlayer += _onBattleEnd
+
+def fini():
+    g_playerEvents.onAvatarReady -= _onBattleReady
+    g_playerEvents.onAvatarBecomeNonPlayer -= _onBattleEnd
+
+def _onBattleReady():
+    player = BigWorld.player()
+    print('Battle ready! Tank: ' + player.vehicleTypeDescriptor.type.userString)
+
+def _onBattleEnd():
+    print('Battle ended.')
+```
+
+The most useful events:
+
+| Event | Fires when |
+|---|---|
+| `onAvatarBecomePlayer` | Player entity enters battle (vehicle not loaded yet) |
+| `onAvatarReady` | Player entity is fully initialized (vehicle and team data available) |
+| `onAvatarBecomeNonPlayer` | Player leaves battle |
+| `onAccountBecomePlayer` | Account enters playable state (garage loaded) |
+| `onAccountBecomeNonPlayer` | Account leaves playable state |
+| `onArenaPeriodChange` | Battle phase changes (prebattle, battle, results...) |
+| `onArenaCreated` | Arena object is created |
+| `onBattleResultsReceived` | Post-battle results are available |
+| `onVehicleEntityCreated` | A new vehicle entity appears in battle |
+
+Always unsubscribe in `fini()`. Forgetting to do so causes memory leaks and phantom callbacks in future battles.
+
+### g_eventBus
+
+Used for communication between Python modules, especially between UI controllers. More granular than `g_playerEvents` and scoped to a specific game state.
+
+```python
+from gui.shared import g_eventBus, events, EVENT_BUS_SCOPE
+
+def init():
+    g_eventBus.addListener(
+        events.GameEvent.BATTLE_LOADING,
+        _onBattleLoading,
+        EVENT_BUS_SCOPE.BATTLE
+    )
+
+def fini():
+    g_eventBus.removeListener(
+        events.GameEvent.BATTLE_LOADING,
+        _onBattleLoading,
+        EVENT_BUS_SCOPE.BATTLE
+    )
+
+def _onBattleLoading(event):
+    print('Battle loading screen shown: ' + str(event.ctx.get('isShown')))
+```
+
+Event bus scopes control when listeners are active:
+
+| Scope | Active when |
+|---|---|
+| `EVENT_BUS_SCOPE.GLOBAL` | Always |
+| `EVENT_BUS_SCOPE.LOBBY` | In the garage |
+| `EVENT_BUS_SCOPE.BATTLE` | In a battle |
+
+### Monkey-patching
+
+When there is no event for what you need, you can replace a method directly on a class at runtime.
+
+```python
+import Avatar
+
+_original_onBecomePlayer = Avatar.Avatar.onBecomePlayer
+
+def _patched_onBecomePlayer(self):
+    _original_onBecomePlayer(self)
+    print('Avatar.onBecomePlayer called')
+
+def init():
+    Avatar.Avatar.onBecomePlayer = _patched_onBecomePlayer
+
+def fini():
+    Avatar.Avatar.onBecomePlayer = _original_onBecomePlayer
+```
+
+Always call the original method and restore it in `fini()`. Failing to do so will break any other mod that patches the same method.
+
+## The UI layer
+
+WoT has two UI systems that coexist. Knowing which one controls a given element determines how you mod it.
+
+### Flash / Scaleform (legacy)
+
+The original UI system used for most battle HUD elements (health bar, damage panel, minimap...). Built with ActionScript 3, compiled to `.swf` files. The source lives in `sources-as3/`.
+
+Python and Flash communicate through the **DAAPI bridge**. Each Flash component has a Python controller that inherits from `BaseDAAPIModule`. Python calls Flash through `as_*` methods; Flash calls Python by invoking methods on the bound Python object.
+
+```python
+# Python side (Meta class pattern)
+class DamagePanelMeta(BaseDAAPIModule):
+    def as_updateHealthS(self, healthStr, progress):
+        if self._isDAAPIInited():
+            return self.flashObject.as_updateHealth(healthStr, progress)
+```
+
+```ts
+// Flash/AS3 side
+public function as_updateHealth(healthStr:String, progress:int) : void {
+    healthBar.progress = progress;
+    healthLabel.text = healthStr;
+}
+```
+
+### Gameface / Unbound (WoT 2.0+)
+
+The modern UI system introduced in WoT 2.0, built with HTML, CSS, and JavaScript. Used for lobby screens, post-battle results, and newer battle elements. Python communicates through **ViewModels**, which provide reactive data binding.
+
+```python
+class MyView(ViewImpl):
+    def updateData(self, value, label):
+        with self.viewModel.transaction() as tr:
+            tr.setValue(value)
+            tr.setLabel(label)
+        # Both updates are sent to JS in a single batch
+```
+
+<Callout>
+Flash and Gameface run side by side in the current client. Battle HUD elements are mostly Flash; lobby and post-battle screens are mostly Gameface. Wargaming is gradually migrating Flash components to Gameface.
+</Callout>
+
+## End-to-end example: health update
+
+Here is how a health change travels through all three layers:
+
+1. The server sends a damage packet
+2. **BigWorld** updates the `Avatar` entity's health property
+3. **`Avatar.py`** fires a vehicle view state event with the new value
+4. **`DamagePanel`** (Python controller) receives the event, formats the data
+5. **`DamagePanelMeta.as_updateHealthS()`** pushes it to Flash
+6. **`HealthBar.as`** updates its frame animation to reflect the new HP percentage
+7. The player sees the health bar change
+
+This same flow applies to ammo count, module damage, crew status, and most other HUD elements.
+
+## Try it yourself
+
+The mod below exercises everything covered on this page. Copy it to `res_mods/<version>/scripts/client/gui/mods/mod_wgmods_dev_client_architecture.py` (the `mod_` prefix is required, ScriptLoader PRO ignores files that don't start with it), then compile it with Python 2.7 (see [Setup](/docs/wot/getting-started/setup) if you haven't installed it yet):
+
+```bash
+"C:\Python27\python.exe" -m py_compile mod_wgmods_dev_client_architecture.py
+```
+
+Launch the game and open `python.log` after a battle to see the output.
+
+```python title="res_mods/<version>/scripts/client/gui/mods/mod_wgmods_dev_client_architecture.py"
+import BigWorld
+from PlayerEvents import g_playerEvents
+from gui.shared import g_eventBus, events, EVENT_BUS_SCOPE
+import Avatar
+
+TAG = '[mod_wgmods_dev_client_architecture]'
+
+# Monkey-patch: intercepts Avatar.onBecomePlayer at the engine level
+_original_onBecomePlayer = Avatar.Avatar.onBecomePlayer
+
+def _patched_onBecomePlayer(self):
+    _original_onBecomePlayer(self)
+    print(TAG + ' Avatar.onBecomePlayer called (engine level)')
+
+# Fires when the garage is loaded
+def _onAccountBecomePlayer():
+    print(TAG + ' garage loaded')
+
+# Fires when entering battle — vehicle data is not available yet
+def _onAvatarBecomePlayer():
+    print(TAG + ' entered battle (vehicle loading...)')
+
+# Fires when fully initialized — safe to read vehicle and arena data
+def _onAvatarReady():
+    player = BigWorld.player()
+    if player is None:
+        return
+    print(TAG + ' tank: ' + player.vehicleTypeDescriptor.type.userString)
+    print(TAG + ' team: ' + str(player.team))
+    arena = player.arena
+    print(TAG + ' map: ' + arena.arenaType.geometryName)
+    print(TAG + ' vehicles in battle: ' + str(len(arena.vehicles)))
+
+# Fires when leaving battle
+def _onAvatarBecomeNonPlayer():
+    print(TAG + ' left battle')
+
+# Fires on the battle loading screen
+def _onBattleLoading(event):
+    print(TAG + ' battle loading screen, isShown=' + str(event.ctx.get('isShown')))
+
+def init():
+    Avatar.Avatar.onBecomePlayer = _patched_onBecomePlayer
+    g_playerEvents.onAccountBecomePlayer += _onAccountBecomePlayer
+    g_playerEvents.onAvatarBecomePlayer += _onAvatarBecomePlayer
+    g_playerEvents.onAvatarReady += _onAvatarReady
+    g_playerEvents.onAvatarBecomeNonPlayer += _onAvatarBecomeNonPlayer
+    g_eventBus.addListener(events.GameEvent.BATTLE_LOADING, _onBattleLoading, EVENT_BUS_SCOPE.BATTLE)
+    print(TAG + ' loaded')
+
+def fini():
+    Avatar.Avatar.onBecomePlayer = _original_onBecomePlayer
+    g_playerEvents.onAccountBecomePlayer -= _onAccountBecomePlayer
+    g_playerEvents.onAvatarBecomePlayer -= _onAvatarBecomePlayer
+    g_playerEvents.onAvatarReady -= _onAvatarReady
+    g_playerEvents.onAvatarBecomeNonPlayer -= _onAvatarBecomeNonPlayer
+    g_eventBus.removeListener(events.GameEvent.BATTLE_LOADING, _onBattleLoading, EVENT_BUS_SCOPE.BATTLE)
+    print(TAG + ' unloaded')
+```
+
+Expected output in `python.log` after one battle:
+
+```txt title="python.log"
+[mod_wgmods_dev_client_architecture] loaded
+[mod_wgmods_dev_client_architecture] garage loaded
+[mod_wgmods_dev_client_architecture] entered battle (vehicle loading...)
+[mod_wgmods_dev_client_architecture] Avatar.onBecomePlayer called (engine level)
+[mod_wgmods_dev_client_architecture] battle loading screen, isShown=True
+[mod_wgmods_dev_client_architecture] battle loading screen, isShown=False
+[mod_wgmods_dev_client_architecture] tank: AMX 50 B
+[mod_wgmods_dev_client_architecture] team: 2
+[mod_wgmods_dev_client_architecture] map: 29_el_hallouf
+[mod_wgmods_dev_client_architecture] vehicles in battle: 14
+[mod_wgmods_dev_client_architecture] left battle
+[mod_wgmods_dev_client_architecture] garage loaded
+```
+
+## Summary: where to look for common tasks
+
+| Task | Approach |
+|---|---|
+| Run code when a battle starts | `g_playerEvents.onAvatarBecomePlayer` (entity ready) or `onAvatarReady` (vehicle data available) |
+| React to arena period changes | `g_playerEvents.onArenaPeriodChange` |
+| Intercept a UI event (e.g. battle loading) | `g_eventBus.addListener` with the right scope |
+| Read the player's current tank | `BigWorld.player().vehicleTypeDescriptor.type.userString` |
+| Read all vehicles in battle | `BigWorld.player().arena.vehicles` |
+| Change battle logic or intercept a method | Monkey-patch the Python class |
+| Modify a Flash HUD element visually | Replace the `.swf` in `res_mods/<version>/gui/flash/` |
+| Build a new UI overlay | Gameface view in `res_mods/<version>/gui/unbound/` |

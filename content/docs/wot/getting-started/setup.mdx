@@ -1,0 +1,205 @@
+---
+title: Environment Setup
+description: Learn how to install the required tools and write your first World of Tanks mod.
+---
+
+Set up your development environment and run your first mod locally.
+
+## System requirements
+
+| Requirement | Version |
+|---|---|
+| Python (for mod compilation) | 2.7 64-bit |
+| Python (for dev tools) | 3.8 or higher |
+| Operating system | Windows (WoT is Windows-only) |
+
+<Callout title="Two Python installs">
+You need both versions. Python 2.7 is used to compile your mod code into the bytecode format the game understands. Python 3.8+ is required to run community dev tools like the Client Unpacker.
+</Callout>
+
+## Quick start
+
+1. Install [Python 2.7 64-bit](https://www.python.org/downloads/release/python-2718/)
+2. Install [Python 3.8+](https://www.python.org/downloads/)
+3. Install [VS Code](https://code.visualstudio.com/) with the [Python extension](https://marketplace.visualstudio.com/items?itemName=ms-python.python)
+4. Create `mod_hello.py`, compile it to `.pyc` with Python 2.7, and drop it in `res_mods/<version>/scripts/client/gui/mods/`
+5. Launch the game and check `python.log` for output
+
+## Install Python 2.7
+
+Download [Python 2.7.18 64-bit](https://www.python.org/downloads/release/python-2718/) (the last release of Python 2.7) and install it. Make note of the install path — you will need it when configuring dev tools.
+
+```txt
+Default path: C:\Python27\
+```
+
+Verify the install by running it with its full path:
+
+```bash
+"C:\Python27\python.exe" --version
+# Python 2.7.18
+```
+
+The install path may vary depending on how you installed it (direct installer, scoop, etc.). Make note of the actual path — you will need it to compile mods and configure dev tools.
+
+<Callout>
+Do not add Python 2.7 to your system PATH if you already have Python 3 there. Reference it by full path instead to avoid conflicts.
+</Callout>
+
+## Set up your editor
+
+[VS Code](https://code.visualstudio.com/) is recommended. Install the [Python extension](https://marketplace.visualstudio.com/items?itemName=ms-python.python) and point it to your Python 2.7 interpreter.
+
+In your workspace settings (`.vscode/settings.json`):
+
+```json title=".vscode/settings.json"
+{
+  "python.defaultInterpreterPath": "C:\\Python27\\python.exe"
+}
+```
+
+PyCharm works well too and has better refactoring support, but VS Code is lighter and sufficient for most mods.
+
+## Install dev tools
+
+### uncompyle6
+
+Used to decompile `.pyc` files from the game into readable Python source. Useful when you need to inspect a specific file that is not covered by the decompiled source reference.
+
+<Callout title="Requires Python 3.8 or lower">
+`uncompyle6` does not work correctly under Python 3.9+. Install it inside a Python 3.8 virtual environment to avoid runtime errors.
+</Callout>
+
+```bash
+# Create a Python 3.8 virtual environment first
+py -3.8 -m venv venv-uncompyle
+venv-uncompyle\Scripts\activate
+pip install uncompyle6
+```
+
+```bash
+# Decompile a single file
+uncompyle6 somefile.pyc > somefile.py
+```
+
+For most cases the decompiled source in `wot-src` is sufficient and you will not need to run uncompyle6 yourself.
+
+### setuptools-wotmod
+
+Used to package your mod into a `.wotmod` archive for distribution.
+
+```bash
+pip install setuptools
+git clone https://github.com/jhakonen/setuptools-wotmod
+cd setuptools-wotmod
+python setup.py install
+```
+
+Then add a `setup.py` to your mod project:
+
+```python title="setup.py"
+from setuptools import setup
+
+setup(
+    name='mod_hello',
+    version='1.0.0',
+    packages=[''],
+    package_dir={'': 'src'},
+)
+```
+
+Build the `.wotmod`:
+
+```bash
+python setup.py bdist_wotmod
+# Output: dist/mod_hello-1.0.0.wotmod
+```
+
+### Client Unpacker (optional)
+
+Used to extract and decompile the full game source automatically. Requires Python 3 and 7-Zip.
+
+```bash
+git clone https://github.com/Mikeyzy/WoT_ModDevTools
+cd WoT_ModDevTools
+python clientUnpacker.py -r   # generates config file
+```
+
+Edit the generated `clientUnpacker.cfg`:
+
+```ini title="clientUnpacker.cfg"
+python27     = C:\Python27\python.exe
+sevenZipPath = C:\Program Files\7-Zip\7z.exe
+wotPath      = C:\Games\World_of_Tanks_EU
+```
+
+Then run it to extract and decompile the game scripts into a local folder you can browse and search.
+
+## ScriptLoader PRO
+
+The game natively loads `mod_*.pyc` files from `res_mods/<version>/scripts/client/gui/mods/`. You do not need anything else to get started.
+
+[ScriptLoader PRO](https://wgmods.net/323/) is an optional community mod that replaces the native loader with a more robust one. It is included in most modpacks like [Aslain's](https://aslain.com/), so if you already use a modpack you likely have it. If you see `[SL_PRO]` lines in `python.log` when the game starts, it is active:
+
+```txt title="python.log"
+[SL_PRO] starting loading script: "mod_hello.pyc" from res_mods folder
+[SL_PRO] executed script in res_mods folder: mod_hello.pyc
+```
+
+The `mod_` filename prefix is required either way. Files that do not start with `mod_` are ignored.
+
+## Create your first mod
+
+Create `mod_hello.py` in your working directory:
+
+```python title="res_mods/<version>/scripts/client/gui/mods/mod_hello.py"
+import BigWorld
+
+def init():
+    BigWorld.callback(5.0, _hello)
+
+def _hello():
+    print('[mod_hello] Hello, World of Tanks!')
+```
+
+The game calls `init()` on every file whose name starts with `mod_` in the mods folder. Files are loaded in alphabetical order.
+
+Then compile it to `.pyc` with Python 2.7:
+
+```bash
+"C:\Python27\python.exe" -m py_compile mod_hello.py
+# Creates mod_hello.pyc in the same folder
+```
+
+<Callout>
+WoT requires `.pyc` bytecode files, not plain `.py`. Always compile before testing, whether you are using `res_mods/` or a `.wotmod` package.
+</Callout>
+
+Copy the compiled file to:
+
+```
+res_mods/
+└── <version>/
+    └── scripts/
+        └── client/
+            └── gui/
+                └── mods/
+                    └── mod_hello.pyc
+```
+
+## Test your mod
+
+1. Drop `mod_hello.pyc` in `res_mods/<version>/scripts/client/gui/mods/`
+2. Launch World of Tanks
+3. Wait a few seconds in the garage
+4. Open `python.log` at the root of your game installation
+
+```txt title="python.log"
+[mod_hello] Hello, World of Tanks!
+```
+
+There is no hot-reload. Every change requires recompiling and restarting the game client.
+
+<Callout title="python.log is your best friend">
+All `print` statements and unhandled exceptions end up in `python.log`. Keep it open in a text editor while you develop.
+</Callout>

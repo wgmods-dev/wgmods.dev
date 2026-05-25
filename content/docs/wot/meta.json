@@ -4,6 +4,11 @@
   "icon": "WoTLogo",
   "root": true,
   "pages": [
-    "index"
+    "getting-started/index",
+    "getting-started/setup",
+    "getting-started/game-file-structure",
+    "getting-started/client-architecture",
+    "getting-started/python-flash-gameface",
+    "getting-started/reading-game-data"
   ]
 }
