@@ -1,0 +1,113 @@
+---
+title: Sounds
+description: Play and control audio from Python mods using the Wwise-backed SoundGroups API.
+---
+
+WoT's audio runs on [Wwise](https://www.audiokinetic.com/products/wwise/) (Audiokinetic). The game fires **Wwise events** by string name, and the audio engine handles playback. From Python, the `SoundGroups` module wraps this into a simple API.
+
+## Playing a sound
+
+The simplest call fires a Wwise event and returns immediately. The audio engine handles everything else.
+
+```python
+import SoundGroups
+
+SoundGroups.g_instance.playSound2D('be_replenishment_full')
+```
+
+`playSound2D` maps directly to `WWISE.WW_eventGlobal`. The `2D` suffix means the sound has no position in 3D space: it plays at full volume regardless of where the camera is. This is the right choice for UI and notification sounds.
+
+## Controllable sounds
+
+To start and stop a sound manually, use `getSound2D`. It returns a Wwise sound object.
+
+```python
+import SoundGroups
+
+_snd = SoundGroups.g_instance.getSound2D('cons_toolbox_start')
+
+_snd.play()   # start playback
+_snd.stop()   # stop playback
+```
+
+Use this pattern for looping sounds that need an explicit stop, for example a repair tool running for a fixed duration.
+
+## Finding event names
+
+Event names are plain strings. They are not enumerated in a single place, but there are two reliable sources:
+
+**Resource accessor list:** `scripts/client/gui/impl/gen/resources/sounds.py` in the game source lists most GUI and lobby sound events as attributes. The attribute name matches the event string directly.
+
+```python
+# from gui/impl/gen/resources/sounds.py
+be_replenishment_full   # repair complete
+be_pre_replenishment    # repair starting
+gui_hangar_hover        # hangar UI hover
+end_battle_last_kill    # last enemy destroyed
+end_battle_capture_base # base captured
+time_over               # battle time expired
+```
+
+**Source grep:** Search for `playSound2D('` in `scripts/client/` to find event names used in context:
+
+```
+cons_ammo_single_plus     # ammo count increased
+cons_ammo_single_minus    # ammo count decreased
+cons_toolbox_start        # repair started
+cons_toolbox_stop         # repair stopped
+cons_radio_interference   # radio interference
+eng_damage_risk           # engine damage warning
+artillery_stun_effect_start
+artillery_stun_effect_end
+```
+
+The full Wwise project is not shipped with the game, so there is no exhaustive list. Testing event names by calling them is the practical approach: unknown events fail silently.
+
+## Replacing a sound file
+
+The game supports MP3 file overrides for exactly two events: `sixthSense` (the sixth sense skill ping) and `soundExploring` (the artillery spotting sound). These are the only audio events that read from `audioww/` on disk at runtime.
+
+Place your MP3 at:
+
+```
+res_mods/<version>/audioww/sixthSense.mp3
+res_mods/<version>/audioww/soundExploring.mp3
+```
+
+Then open **Settings → Sound → Sixth Sense Activation Sound** and select **User sound** from the dropdown. The game loads the MP3 on next launch. No Python required.
+
+This is one of the most common sound mods because it requires no tooling.
+
+For all other sounds, audio is stored inside Wwise sound banks (`.bnk` files) at `res/audioww/`. Replacing those requires extracting the bank, swapping the `.wem` audio files inside, and repacking it. That workflow needs dedicated tools ([BnkExtract](https://github.com/bnnm/wwiser)) and is outside the scope of this guide.
+
+## Try it yourself
+
+This mod plays a sound each time you select a different tank in the hangar. Save it as `mod_wgmods_dev_sound.py` and drop it in `res_mods/<version>/scripts/client/gui/mods/`.
+
+```python title="res_mods/<version>/scripts/client/gui/mods/mod_wgmods_dev_sound.py"
+import SoundGroups
+from CurrentVehicle import g_currentVehicle
+
+TAG = '[wgmod.dev_sound]'
+SOUND_EVENT = 'be_replenishment_full'
+
+def _onVehicleChanged():
+    SoundGroups.g_instance.playSound2D(SOUND_EVENT)
+    print(TAG + ' played: ' + SOUND_EVENT)
+
+def init():
+    g_currentVehicle.onChanged += _onVehicleChanged
+    print(TAG + ' loaded')
+
+def fini():
+    g_currentVehicle.onChanged -= _onVehicleChanged
+    print(TAG + ' unloaded')
+```
+
+Launch the game and click through the hangar carousel. You should hear the replenishment sound every time the selected tank changes.
+
+To try a different sound, replace `SOUND_EVENT` with any event name from the list above.
+
+<Callout>
+If you hear nothing and `python.log` shows the print line, the event name is valid but the sound bank containing it may not be loaded in the current context (hangar vs. battle). Most `gui_` and `be_` events work in the hangar. `cons_` and `artillery_` events are typically loaded only in battle.
+</Callout>

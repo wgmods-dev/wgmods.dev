@@ -1,0 +1,137 @@
+---
+title: Hooking into the Game
+description: When to use events vs method patches, how to subscribe to per-battle signals, and how to find methods worth hooking.
+---
+
+Two mechanisms cover nearly all mod use cases: subscribing to events and patching methods. [Client Architecture](/docs/wot/getting-started/client-architecture) explains how each works. This page covers when and where to use each one in practice.
+
+## Choosing the right hook
+
+| You want to | Use |
+|---|---|
+| React when the garage loads | `g_playerEvents.onAccountBecomePlayer` |
+| React when a battle starts (no vehicle data) | `g_playerEvents.onAvatarBecomePlayer` |
+| React when a battle starts (vehicle and arena ready) | `g_playerEvents.onAvatarReady` |
+| React when a battle ends | `g_playerEvents.onAvatarBecomeNonPlayer` |
+| React to a UI action or data update (no event exists) | Method patch |
+| Track a value that changes during battle | Method patch + module-level state |
+
+## Method patching in practice
+
+Method patches are the fallback for everything `g_playerEvents` and `g_eventBus` don't cover. The pattern is always the same: store the original, wrap it, restore in `fini()`.
+
+```python
+from gui.Scaleform.daapi.view.battle.shared.damage_panel import DamagePanel
+
+_orig = DamagePanel._updateHealthFromServer
+
+def _patched(self, health):
+    print('[my_mod] health: ' + str(health))
+    _orig(self, health)
+
+def init():
+    DamagePanel._updateHealthFromServer = _patched
+
+def fini():
+    DamagePanel._updateHealthFromServer = _orig
+```
+
+<Callout>
+Store the original at module level, not inside `init()`. Storing it inside `init()` means each mod reload overwrites the original with an already-patched version, and `fini()` can no longer restore it correctly.
+</Callout>
+
+Always call the original unless you explicitly want to suppress the behavior. Failing to do so breaks any other mod that patches the same method after yours.
+
+## Finding methods to patch
+
+The full decompiled source is at [wgmods-dev/wot-src](https://github.com/wgmods-dev/wot-src). Start from the system you want to modify:
+
+| System | Location |
+|---|---|
+| Battle HUD (health, ammo, ribbons, minimap) | `scripts/client/gui/Scaleform/daapi/view/battle/` |
+| Hangar and lobby screens | `scripts/client/gui/impl/lobby/` |
+| Player entity (shots, movement, damage) | `scripts/client/Avatar.py` |
+| Vehicle logic | `scripts/client/vehicle_systems/` |
+
+Once you find the class, look for methods that take the data you care about as a parameter. Good targets are methods named `_update*`, `_refresh*`, or `_on*`, and any method that calls `as_*` (those push data to Flash — hook just before the call to intercept the value first).
+
+## Subscribing to per-battle signals
+
+`g_playerEvents` is a global singleton. Some signals live on objects that only exist during a battle, like the arena. Subscribe to them inside `onAvatarReady` (when the arena exists) and unsubscribe in `onAvatarBecomeNonPlayer` (when it is destroyed):
+
+```python
+import BigWorld
+from PlayerEvents import g_playerEvents
+
+def _onVehicleKilled(vehicleID, *args):
+    player = BigWorld.player()
+    if player is None:
+        return
+    vInfo = player.arena.vehicles.get(vehicleID)
+    if vInfo is None:
+        return
+    print('[my_mod] destroyed: ' + vInfo['vehicleType'].type.userString + ' (' + vInfo['name'] + ')')
+
+def _onAvatarReady():
+    BigWorld.player().arena.onVehicleKilled += _onVehicleKilled
+
+def _onAvatarBecomeNonPlayer():
+    player = BigWorld.player()
+    if player is not None:
+        player.arena.onVehicleKilled -= _onVehicleKilled
+
+def init():
+    g_playerEvents.onAvatarReady += _onAvatarReady
+    g_playerEvents.onAvatarBecomeNonPlayer += _onAvatarBecomeNonPlayer
+
+def fini():
+    g_playerEvents.onAvatarReady -= _onAvatarReady
+    g_playerEvents.onAvatarBecomeNonPlayer -= _onAvatarBecomeNonPlayer
+```
+
+The same pattern applies to any signal on a battle-only object: subscribe when the object is created, unsubscribe when it is destroyed.
+
+## Try it yourself
+
+This mod combines a method patch and two lifecycle events to count how many HP updates `DamagePanel` received during a battle and log the result when you return to the garage.
+
+```python title="res_mods/<version>/scripts/client/gui/mods/mod_wgmods_dev_hooking.py"
+from PlayerEvents import g_playerEvents
+from gui.Scaleform.daapi.view.battle.shared.damage_panel import DamagePanel
+
+TAG = '[wgmod.dev_hooking]'
+
+_hit_count = 0
+_orig = DamagePanel._updateHealthFromServer
+
+def _patched(self, health):
+    global _hit_count
+    _hit_count += 1
+    _orig(self, health)
+
+def _onAvatarBecomeNonPlayer():
+    global _hit_count
+    print(TAG + ' battle ended | HP updates: ' + str(_hit_count))
+    _hit_count = 0
+
+def init():
+    DamagePanel._updateHealthFromServer = _patched
+    g_playerEvents.onAvatarBecomeNonPlayer += _onAvatarBecomeNonPlayer
+    print(TAG + ' loaded')
+
+def fini():
+    DamagePanel._updateHealthFromServer = _orig
+    g_playerEvents.onAvatarBecomeNonPlayer -= _onAvatarBecomeNonPlayer
+    print(TAG + ' unloaded')
+```
+
+```bash
+"C:\Python27\python.exe" -m py_compile mod_wgmods_dev_hooking.py
+```
+
+Play a battle, take some damage, and check `python.log` after returning to the garage:
+
+```txt title="python.log"
+[wgmod.dev_hooking] loaded
+[wgmod.dev_hooking] battle ended | HP updates: 5
+```

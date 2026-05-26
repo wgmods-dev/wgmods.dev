@@ -1,0 +1,117 @@
+---
+title: Debugging
+description: How to read python.log, interpret tracebacks, and diagnose common mod failures.
+---
+
+All mod output lands in one place: `python.log` at the root of your game installation. Every `print` statement, every unhandled exception, and every loader message ends up there.
+
+## Reading `python.log`
+
+```txt
+C:\Games\World_of_Tanks_EU\python.log
+```
+
+Each line follows the format `DATE TIME: LEVEL: Main: MESSAGE`. For your mods, look for lines with your TAG:
+
+```txt title="python.log"
+2026-01-15 12:34:56.123: INFO:  Main: [my_mod] loaded
+2026-01-15 12:35:02.456: INFO:  Main: [my_mod] tank: AMX 50 B
+2026-01-15 12:39:14.789: ERROR: Main: Traceback (most recent call last):
+  ...
+```
+
+Open it in a text editor that supports live reload (VS Code, Notepad++) so it updates as you play. Search for your TAG to filter out engine noise.
+
+<Callout>
+`python.log` is appended to across sessions, not overwritten. Delete or clear it before a test run to keep it readable.
+</Callout>
+
+## Before launching: py_compile
+
+Always compile before testing. `py_compile` catches syntax errors immediately without having to launch the game:
+
+```bash
+"C:\Python27\python.exe" -m py_compile mod_my_mod.py
+```
+
+A syntax error prints directly to the terminal:
+
+```txt
+  File "mod_my_mod.py", line 12
+    def fini()
+             ^
+SyntaxError: invalid syntax
+```
+
+No output means the file compiled cleanly.
+
+## Runtime exceptions
+
+When a mod throws an unhandled exception, the traceback appears in `python.log` under `ERROR: Main:`. The game continues running but the mod is disabled for that session.
+
+```txt title="python.log"
+2026-01-15 12:34:56.123: ERROR: Main: Traceback (most recent call last):
+  File "scripts/client/gui/mods/mod_my_mod.py", line 8, in init
+    g_playerEvents.onAccountBecomePlayerr += _onAccountBecomePlayer
+AttributeError: 'Event' object has no attribute 'onAccountBecomePlayerr'
+```
+
+Read from the bottom up: the last line tells you what went wrong, the lines above show where.
+
+## Common errors
+
+### ImportError
+
+```txt title="python.log"
+ImportError: No module named gui.Scaleform.daapi.view.battle.shared.damage_panell
+```
+
+A wrong module path. Look up the exact path in [wgmods-dev/wot-src](https://github.com/wgmods-dev/wot-src) under `scripts/client/`.
+
+### AttributeError
+
+```txt title="python.log"
+AttributeError: 'VehicleType' object has no attribute 'classTag'
+```
+
+A wrong property or method name. Check the class in wot-src to find the correct attribute.
+
+### TypeError
+
+```txt title="python.log"
+TypeError: _patched() takes exactly 2 arguments (1 given)
+```
+
+A method patch with the wrong signature. Instance methods always receive `self` as the first argument:
+
+```python
+# Wrong
+def _patched(health):
+    pass
+
+# Correct
+def _patched(self, health):
+    pass
+```
+
+### Mod loads but nothing happens
+
+If you see `loaded` in `python.log` but your callback never fires:
+
+- **Wrong event name**: double-check the spelling against the [client architecture reference](/docs/wot/getting-started/client-architecture#g_playerevents).
+- **Subscribed too early**: some events require the object to exist first. For example, `player.arena` signals must be subscribed in `onAvatarReady`, not in `init()`.
+- **Stale .pyc**: the game loads the `.pyc`, not the `.py`. Recompile after every change.
+- **Missing `mod_` prefix**: files without the `mod_` prefix are silently ignored by the mod loader.
+
+## Visual debugging
+
+For values that change during a session, `print` to `python.log` is most practical. For real-time feedback in the hangar, `SystemMessages.pushMessage` surfaces the value as an in-game notification without leaving the client:
+
+```python
+import gui.SystemMessages as SystemMessages
+from gui.SystemMessages import SM_TYPE
+
+SystemMessages.pushMessage('[my_mod] value: ' + str(value), type=SM_TYPE.Information)
+```
+
+Use `SM_TYPE.Warning` (orange) to make debug messages visually distinct from normal notifications.

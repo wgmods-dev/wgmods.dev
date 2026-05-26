@@ -1,0 +1,106 @@
+---
+title: Assets and Icons
+description: Replace vehicle icons and other image assets using the res_mods override system.
+---
+
+Image assets work the same way as SWF files: any file placed in `res_mods/<version>/` takes priority over the packed original. No Python required.
+
+## Types of vehicle icons
+
+Vehicle icons come in several variants, each used in a different part of the UI:
+
+| Path | Size | Used in |
+|---|---|---|
+| `gui/maps/icons/vehicle/x380x304/<code>.png` | 380×304 | Hangar carousel |
+| `gui/maps/icons/vehicle/x120x96/<code>.png` | 120×96 | Tech tree |
+| `gui/maps/icons/vehicle/x190x152/<code>.png` | 190×152 | Unknown |
+| `gui/maps/icons/vehicle/<nation>-<Code>.png` | 160×100 | Onslaught tank selector |
+| `gui/maps/icons/vehicle/small/<nation>-<Code>.png` | 124×31 | Post-mortem panel, platoon UI |
+| `gui/maps/icons/vehicle/contour/<nation>-<Code>.png` | 80×24 | Battle players panel |
+| `gui/maps/icons/vehicle/420x307/<code>.png` | 420×307 | Session stats tooltip |
+
+## Naming convention
+
+Two naming conventions coexist depending on the subfolder.
+
+**Nation-prefixed** (`contour/`, root): `<nation>-<NationCode><number>_<TankName>.png`
+
+| Nation prefix | Code | Example |
+|---|---|---|
+| `china` | `Ch` | `china-Ch01_Type59.png` |
+| `czech` | `Cz` | `czech-Cz01_...png` |
+| `france` | `F` | `france-F10_AMX_50B.png` |
+| `germany` | `G` | `germany-G104_Tiger_I.png` |
+| `italy` | `It` | `italy-It01_...png` |
+| `japan` | `J` | `japan-J01_...png` |
+| `poland` | `Pl` | `poland-Pl01_...png` |
+| `sweden` | `S` | `sweden-S01_...png` |
+| `uk` | `GB` | `uk-GB01_Vickers_MkI.png` |
+| `usa` | `A` | `usa-A01_T1_Cunningham.png` |
+| `ussr` | `R` | `ussr-R04_T-34.png` |
+
+**Lowercase code** (numbered folders: `x380x304/`, `x120x96/`, `420x307/`, etc.): all lowercase, no nation prefix. For example `f10_amx_50b.png`.
+
+## Finding icons in the packages
+
+Icons are split across `gui-part1.pkg` through `gui-part4.pkg` in `res/packages/`. Use this script to find the exact filename and package for any tank. Save it as `find_icons.py` in your WoT installation folder and run it once:
+
+```python title="C:\Games\World_of_Tanks_EU\find_icons.py"
+import os
+import zipfile
+
+SEARCH = 'amx_50b'  # edit this to search for any tank
+
+for pkg_name in sorted(os.listdir('res/packages')):
+    if not pkg_name.endswith('.pkg'):
+        continue
+    try:
+        z = zipfile.ZipFile('res/packages/' + pkg_name)
+        for name in z.namelist():
+            if 'maps/icons/vehicle' in name and SEARCH.lower() in name.lower():
+                print(pkg_name + ': ' + name)
+    except Exception:
+        pass
+```
+
+## Try it yourself
+
+This walkthrough replaces the hangar carousel icon for the AMX 50 B. No battle required.
+
+**Step 1: Extract the original icon**
+
+Save this script as `extract_icon.py` in your WoT installation folder and run it:
+
+```python title="C:\Games\World_of_Tanks_EU\extract_icon.py"
+import zipfile
+
+z = zipfile.ZipFile('res/packages/gui-part4.pkg')
+z.extract('gui/maps/icons/vehicle/x380x304/f10_amx_50b.png', 'my_icons/')
+# output: my_icons/gui/maps/icons/vehicle/x380x304/f10_amx_50b.png
+```
+
+You now have the original 380×304 PNG at `my_icons/gui/maps/icons/vehicle/x380x304/f10_amx_50b.png`.
+
+**Step 2: Edit the icon**
+
+Open the extracted file in any image editor ([GIMP](https://www.gimp.org/), [Paint.NET](https://www.getpaint.net/), Photoshop). Make a visible change, for example adding a colored overlay, then save it at the same 380×304 size as a PNG.
+
+<Callout>
+The game scales icons down depending on the UI context. Thin borders near the edges are often clipped or invisible at display size. Use a bold overlay or a change that covers most of the image to confirm the override is working.
+</Callout>
+
+**Step 3: Deploy**
+
+Copy your edited file to:
+
+```
+res_mods/<version>/gui/maps/icons/vehicle/x380x304/f10_amx_50b.png
+```
+
+The path under `res_mods/<version>/` must mirror the path inside the package exactly.
+
+**Step 4: Verify**
+
+Launch the game and select the AMX 50 B in the hangar carousel. Your modified icon appears immediately. No battle required.
+
+To replace the contour icon used in the battle players panel, repeat the same steps using `gui/maps/icons/vehicle/contour/france-F10_AMX_50B.png` (80×24 from `gui-part4.pkg`).

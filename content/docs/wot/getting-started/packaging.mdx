@@ -1,0 +1,96 @@
+---
+title: Packaging your Mod
+description: Bundle your mod into a .wotmod file for clean distribution and installation.
+---
+
+During development you work in `res_mods/<version>/` because the file-drop workflow is fast. When you distribute a mod to players, the standard format is a `.wotmod` file. It installs with a single copy, keeps the game directory clean, and survives most updates without breaking.
+
+## What is a `.wotmod`
+
+A `.wotmod` file is a ZIP archive with two things inside:
+
+```
+meta.xml
+res/
+  scripts/client/gui/mods/mod_yourmod.pyc
+```
+
+The `res/` folder mirrors the game's own `res/` folder exactly. Any path that works under `res_mods/<version>/` works the same way under `res/` inside the package. The file goes in `mods/<version>/`, not `res_mods/`.
+
+## `meta.xml`
+
+`meta.xml` is optional but expected by mod managers and the game's mod list UI. It sits at the root of the ZIP:
+
+```xml
+<root>
+    <id>com.yourname.modname</id>
+    <version>1.0.0</version>
+    <name>Your Mod Name</name>
+    <description>One line description of what the mod does.</description>
+</root>
+```
+
+Use reverse-domain notation for `<id>` (`com.yourname.modname`). It must be unique across all mods on the player's machine. The `<version>` field is a free string.
+
+## File naming and location
+
+Name the file `<id>_<version>.wotmod` and place it in `mods/<version>/`:
+
+```
+mods/
+└── 2.2.1.3/
+    └── com.yourname.modname_1.0.0.wotmod
+```
+
+The filename itself is not read by the game. The `<id>` inside `meta.xml` is the canonical identifier.
+
+## Python files: `.pyc` only
+
+Ship only the compiled `.pyc` file inside the package, not the `.py` source. The game's script loader only picks up `.pyc` files from inside `.wotmod` packages.
+
+Compile with Python 2.7 before packing:
+
+```bash
+python -m py_compile mod_yourmod.py
+```
+
+## Try it yourself
+
+This script packages the config mod built in the [Configuration Files](/docs/wot/getting-started/configuration-files) page into a distributable `.wotmod`. Save it as `pack.py` anywhere and run it once.
+
+```python title="pack.py"
+import os
+import zipfile
+
+MOD_ID = 'dev.wgmods.mod_config_example'
+VERSION = '1.0.0'
+PYC_PATH = r'C:\Games\World_of_Tanks_EU\res_mods\2.2.1.3\scripts\client\gui\mods\mod_wgmods_dev_config.pyc'
+OUT_DIR = r'C:\Games\World_of_Tanks_EU\mods\2.2.1.3'
+
+meta = '''<root>
+    <id>{id}</id>
+    <version>{version}</version>
+    <name>Config Example</name>
+    <description>Shows vehicle info on tank select. Example mod from wgmods.dev.</description>
+</root>'''.format(id=MOD_ID, version=VERSION)
+
+out_path = os.path.join(OUT_DIR, '%s_%s.wotmod' % (MOD_ID, VERSION))
+
+with zipfile.ZipFile(out_path, 'w', zipfile.ZIP_STORED) as z:
+    z.writestr('meta.xml', meta)
+    z.write(PYC_PATH, 'res/scripts/client/gui/mods/mod_wgmods_dev_config.pyc')
+
+print('Written: ' + out_path)
+```
+
+Run it:
+
+```bash
+python pack.py
+```
+
+Then remove `mod_wgmods_dev_config.pyc` from `res_mods/` so the two copies do not conflict, and launch the game. The mod loads from the package identically to before.
+
+<Callout>
+The `.py` source file in `res_mods/` does not conflict with a `.wotmod` package, but the `.pyc` would be loaded twice. Remove the `res_mods/` copy before testing the packaged version.
+</Callout>

@@ -9,6 +9,13 @@
     "getting-started/game-file-structure",
     "getting-started/client-architecture",
     "getting-started/python-flash-gameface",
-    "getting-started/reading-game-data"
+    "getting-started/reading-game-data",
+    "getting-started/hooking-into-the-game",
+    "getting-started/debugging",
+    "getting-started/configuration-files",
+    "getting-started/assets-and-icons",
+    "getting-started/sounds",
+    "getting-started/packaging",
+    "getting-started/keeping-up-to-date"
   ]
 }

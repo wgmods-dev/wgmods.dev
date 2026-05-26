@@ -1,0 +1,156 @@
+---
+title: Configuration Files
+description: Read and write JSON config files so users can change mod behavior without editing code.
+---
+
+Making a mod configurable means users can change its behavior without touching the source. The standard approach is a JSON file in a dedicated folder inside `res_mods/`.
+
+## Where to put config files
+
+The game's working directory is your installation root (e.g. `C:\Games\World_of_Tanks_EU\`). The community convention is:
+
+```
+res_mods/
+└── configs/
+    └── <your_mod_name>/
+        └── config.json
+```
+
+Use a relative path in your mod. Because the working directory is always the game root, this works regardless of where the player installed the game.
+
+## Reading a config at startup
+
+Define your defaults as a Python dict first. This guarantees the mod works even if the config file is missing or only partially filled in:
+
+```python
+import os
+import json
+
+_CONFIG_PATH = 'res_mods/configs/my_mod/config.json'
+
+_DEFAULT_CONFIG = {
+    'enabled': True,
+    'show_tier': True,
+    'show_class': True,
+}
+
+_config = dict(_DEFAULT_CONFIG)
+
+def _load_config():
+    if not os.path.exists(_CONFIG_PATH):
+        return
+    try:
+        with open(_CONFIG_PATH, 'r') as f:
+            _config.update(json.load(f))
+    except Exception as e:
+        print('[my_mod] failed to load config: ' + str(e))
+
+def init():
+    _load_config()
+```
+
+`_config.update(data)` merges the file values into the defaults. Keys present in the file override the defaults; any missing keys keep their default value.
+
+## Creating the default config on first run
+
+If the file does not exist yet, write the defaults so the user has a file to edit:
+
+```python
+def _load_config():
+    if not os.path.exists(_CONFIG_PATH):
+        folder = os.path.dirname(_CONFIG_PATH)
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+        with open(_CONFIG_PATH, 'w') as f:
+            json.dump(_DEFAULT_CONFIG, f, indent=2)
+        print('[my_mod] created default config at ' + _CONFIG_PATH)
+        return
+    try:
+        with open(_CONFIG_PATH, 'r') as f:
+            _config.update(json.load(f))
+        print('[my_mod] config loaded')
+    except Exception as e:
+        print('[my_mod] failed to load config: ' + str(e))
+```
+
+The first time the mod runs it writes the file. The user opens it, edits the values, and restarts the game.
+
+## Try it yourself
+
+This mod reads a config to control which fields are shown when you select a tank in the hangar. On first run it creates the config file automatically.
+
+```json title="res_mods/configs/mod_wgmods_dev_config/config.json"
+{
+  "enabled": true,
+  "show_tier": true,
+  "show_class": true,
+  "show_nation": false
+}
+```
+
+```python title="res_mods/<version>/scripts/client/gui/mods/mod_wgmods_dev_config.py"
+import os
+import json
+import nations
+from CurrentVehicle import g_currentVehicle
+import gui.SystemMessages as SystemMessages
+from gui.SystemMessages import SM_TYPE
+
+TAG = '[wgmod.dev_config]'
+_CONFIG_PATH = 'res_mods/configs/mod_wgmods_dev_config/config.json'
+
+_DEFAULT_CONFIG = {
+    'enabled': True,
+    'show_tier': True,
+    'show_class': True,
+    'show_nation': False,
+}
+
+_config = dict(_DEFAULT_CONFIG)
+
+def _load_config():
+    if not os.path.exists(_CONFIG_PATH):
+        folder = os.path.dirname(_CONFIG_PATH)
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+        with open(_CONFIG_PATH, 'w') as f:
+            json.dump(_DEFAULT_CONFIG, f, indent=2)
+        print(TAG + ' created default config at ' + _CONFIG_PATH)
+        return
+    try:
+        with open(_CONFIG_PATH, 'r') as f:
+            _config.update(json.load(f))
+        print(TAG + ' config loaded')
+    except Exception as e:
+        print(TAG + ' failed to load config: ' + str(e))
+
+def _onVehicleChanged():
+    if not _config['enabled']:
+        return
+    vehicle = g_currentVehicle.item
+    if vehicle is None:
+        return
+    parts = [vehicle.userName]
+    if _config['show_tier']:
+        parts.append('Tier ' + str(vehicle.level))
+    if _config['show_class']:
+        parts.append(vehicle.type)
+    if _config['show_nation']:
+        parts.append(nations.NAMES[vehicle.nationID])
+    SystemMessages.pushMessage(TAG + ' ' + ' | '.join(parts), type=SM_TYPE.Information)
+
+def init():
+    _load_config()
+    g_currentVehicle.onChanged += _onVehicleChanged
+    print(TAG + ' loaded')
+
+def fini():
+    g_currentVehicle.onChanged -= _onVehicleChanged
+    print(TAG + ' unloaded')
+```
+
+```bash
+"C:\Python27\python.exe" -m py_compile mod_wgmods_dev_config.py
+```
+
+Launch the game and select a tank in the hangar. The config file is created at `res_mods/configs/mod_wgmods_dev_config/config.json`. Set `"show_nation": true` or `"enabled": false`, save the file, and restart the game to see the change.

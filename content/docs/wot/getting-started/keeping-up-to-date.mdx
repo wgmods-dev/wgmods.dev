@@ -1,0 +1,94 @@
+---
+title: Keeping your Mod Up to Date
+description: What breaks after a game patch and how to fix it quickly.
+---
+
+WoT patches every few weeks. Most patches break at least one mod. Knowing what to look for cuts the time to fix from hours to minutes.
+
+## The version folder
+
+The game only loads scripts from the folder that matches the current client version. After a patch, `res_mods/2.2.1.3/` is ignored and `res_mods/2.2.1.4/` (or whatever the new version is) is loaded instead.
+
+**Fix:** copy or rename your folder to the new version number.
+
+```
+res_mods/
+├── 2.2.1.3/   ← ignored after patch
+└── 2.2.1.4/   ← create this
+```
+
+For `.wotmod` packages the same applies: move them from `mods/2.2.1.3/` to `mods/2.2.1.4/`.
+
+The current version string is shown on the login screen or in `res/version.xml`.
+
+## First thing after a patch: check `python.log`
+
+Launch the game after updating, go to the hangar, and open `python.log`. Look for any `ERROR` lines tagged with your mod name. Common failures:
+
+**Import error:** a class moved to a different module.
+
+```
+ImportError: No module named daapi.view.battle.shared.damage_panel
+```
+
+Search the game source for the class name to find its new path.
+
+**Attribute error:** a property was renamed or removed.
+
+```
+AttributeError: 'Vehicle' object has no attribute 'type'
+```
+
+Check the current definition of the class in the source and find the replacement attribute.
+
+**Method signature change:** a patched method now has different arguments.
+
+```
+TypeError: _updateHealthFromServer() takes 3 arguments (2 given)
+```
+
+Read the current method signature in the source and update your wrapper to match.
+
+## Finding the new API in the source
+
+Keep a local copy of the game source (see [Game File Structure](/docs/wot/getting-started/game-file-structure)). When something breaks, search for the class or method by name:
+
+```bash
+# find where DamagePanel moved to
+grep -r "class DamagePanel" scripts/
+```
+
+If the class no longer exists, search for a keyword from its old behavior to find what replaced it.
+
+## Defensive coding
+
+Some breakage can be avoided by writing mods that degrade gracefully instead of crashing.
+
+Wrap the patch in a try/except so a failure disables the feature without taking down the whole mod:
+
+```python
+try:
+    from gui.Scaleform.daapi.view.battle.shared.damage_panel import DamagePanel
+    _orig = DamagePanel._updateHealthFromServer
+
+    def _patched(self, health):
+        _orig(self, health)
+
+    DamagePanel._updateHealthFromServer = _patched
+except Exception as e:
+    print('[my_mod] hook unavailable: ' + str(e))
+```
+
+Use `hasattr` before accessing properties that might not exist on older or newer clients:
+
+```python
+nation = nations.NAMES[vehicle.nationID] if hasattr(vehicle, 'nationID') else 'unknown'
+```
+
+These patterns will not prevent all breakage, but they ensure one broken hook does not crash the rest of the mod.
+
+## `.wotmod` packages and patch timing
+
+A `.wotmod` package that only contains Python scripts usually survives patches as-is once moved to the new version folder. Flash or Gameface assets bundled in the package are more likely to break if the UI layout changed.
+
+If your package includes assets from `res/gui/`, verify them in-game after each patch.
