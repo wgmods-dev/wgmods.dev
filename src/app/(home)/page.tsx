@@ -170,6 +170,11 @@ export default function HomePage() {
               description="Access detailed API reference and technical specifications"
               href="/docs/reference"
             />
+            <Card
+              title="WoT Player Stats"
+              description="Look up World of Tanks player and clan statistics on unicum.gg: WN8, WNX and leaderboards"
+              href="https://unicum.gg"
+            />
           </Cards>
         </PanelContent>
       </Panel>
@@ -191,6 +196,14 @@ export default function HomePage() {
             <Link href="/docs/reference" className="text-fd-muted-foreground hover:text-fd-foreground transition-colors">
               Reference
             </Link>
+            <a
+              href="https://unicum.gg"
+              target="_blank"
+              rel="noopener"
+              className="text-fd-muted-foreground hover:text-fd-foreground transition-colors"
+            >
+              WoT Stats
+            </a>
           </div>
           <div className="text-xs text-fd-muted-foreground space-y-1">
             <div>© 2025 wgmods.dev</div>
