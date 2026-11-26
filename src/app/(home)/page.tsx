@@ -30,7 +30,7 @@ export default function HomePage() {
               Getting Started
             </Link>
             <Link
-              href="/docs/guides"
+              href="/docs/wot/getting-started"
               className={`${buttonVariants({ variant: "outline" })} backdrop-blur-sm border-white/20 text-white hover:text-white`}
             >
               Browse Guides
@@ -163,12 +163,7 @@ export default function HomePage() {
             <Card
               title="Guides"
               description="Follow step-by-step tutorials for World of Tanks, World of Warships, and more"
-              href="/docs/guides"
-            />
-            <Card
-              title="Reference"
-              description="Access detailed API reference and technical specifications"
-              href="/docs/reference"
+              href="/docs/wot/getting-started"
             />
             <Card
               title="WoT Player Stats"
@@ -190,11 +185,8 @@ export default function HomePage() {
             <Link href="/docs" className="text-fd-muted-foreground hover:text-fd-foreground transition-colors">
               Documentation
             </Link>
-            <Link href="/docs/guides" className="text-fd-muted-foreground hover:text-fd-foreground transition-colors">
+            <Link href="/docs/wot/getting-started" className="text-fd-muted-foreground hover:text-fd-foreground transition-colors">
               Guides
-            </Link>
-            <Link href="/docs/reference" className="text-fd-muted-foreground hover:text-fd-foreground transition-colors">
-              Reference
             </Link>
             <a
               href="https://unicum.gg"
